@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reel Shelf — Your Movie Library</title>
+<style>
+  :root{
+    --bg: #0a0a0b;
+    --bg-soft: #131215;
+    --panel: #1a191d;
+    --panel-edge: #2b2a30;
+    --ink: #f1f0f2;
+    --ink-dim: #9b99a3;
+    --ink-faint: #5c5a63;
+    --accent: #d8d8dd;
+    --accent-dim: #3a3a40;
+    --teal: #8a8f99;
+    --red: #c4524d;
+    --radius: 14px;
+    --shadow: 0 16px 36px rgba(0,0,0,0.55);
+
+    --c-dvd: #6b86b3;
+    --c-bluray: #8d7bc9;
+    --c-4k: #c9a35a;
+    --c-appletv: #8b8f97;
+    --c-fandango: #c4524d;
+    --c-prime: #00a8e0;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(circle at 15% -10%, #1d1c22 0%, transparent 45%),
+      radial-gradient(circle at 100% 0%, #181820 0%, transparent 40%),
+      linear-gradient(180deg, #0c0c0e 0%, var(--bg) 100%);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,h2,h3, .display{
+    font-family: 'Oswald', 'Arial Narrow', system-ui, sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* ---------- Top Bar ---------- */
+  header{
+    position: sticky; top:0; z-index: 30;
+    background: rgba(19,16,25,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .header-inner{
+    max-width: 1180px; margin: 0 auto;
+    display:flex; align-items:center; gap:16px;
+    padding: 16px 24px;
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-size: 22px; color: var(--ink); white-space:nowrap;
+  }
+  .logo .reel{
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 3px solid var(--accent);
+    position: relative; flex-shrink:0;
+  }
+  .logo .reel::before, .logo .reel::after{
+    content:""; position:absolute; width:7px; height:7px; border-radius:50%;
+    background: var(--accent);
+  }
+  .logo .reel::before{ top:3px; left:9px; }
+  .logo .reel::after{ bottom:3px; right:3px; }
+  .header-spacer{ flex:1; }
+
+  .btn{
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: 10px; border: 1px solid var(--panel-edge);
+    background: var(--panel); color: var(--ink);
+    padding: 10px 16px; cursor: pointer;
+    display:inline-flex; align-items:center; gap:7px;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .btn:hover{ border-color: var(--accent); transform: translateY(-1px); }
+  .btn:active{ transform: translateY(0); }
+  .btn-primary{
+    background: linear-gradient(135deg, #ececef, #9a98a3);
+    color: #14141a; border: none;
+  }
+  .btn-primary:hover{ filter: brightness(1.08); border-color: transparent; }
+  .btn-ghost{ background: transparent; }
+  .btn-icon{ padding: 10px; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+  input[type="file"]{ display:none; }
+
+  /* ---------- Layout ---------- */
+  main{ max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  .stats-row{
+    display:flex; gap:12px; flex-wrap:wrap; margin-bottom: 26px;
+  }
+  .stat-pill{
+    background: var(--panel); border:1px solid var(--panel-edge);
+    border-radius: 12px; padding: 10px 16px;
+    display:flex; align-items:baseline; gap:8px;
+    font-size: 13px; color: var(--ink-dim);
+  }
+  .stat-pill b{ font-size: 18px; color: var(--ink); font-family:'Oswald',sans-serif; }
+  .stat-pill .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:2px; }
+
+  /* ---------- View Tabs ---------- */
+  .view-tabs{
+    display:flex; gap:4px; margin-bottom: 22px;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .view-tab{
+    background:none; border:none; cursor:pointer;
+    font-family:'Oswald',sans-serif; font-size:14px; letter-spacing:0.04em;
+    text-transform:uppercase; color: var(--ink-faint);
+    padding: 4px 4px 14px; margin-right: 22px;
+    display:flex; align-items:center; gap:9px;
+    border-bottom: 2px solid transparent;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .view-tab:hover{ color: var(--ink-dim); }
+  .view-tab.active{ color: var(--ink); border-bottom-color: var(--accent); }
+  .view-tab-count{
+    font-family:'Inter',sans-serif; text-transform:none; letter-spacing:0;
+    font-size:11.5px; font-weight:600; color: var(--ink-faint);
+    background: var(--panel); border:1px solid var(--panel-edge);
+    border-radius: 999px; padding: 2px 9px;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .view-tab.active .view-tab-count{ color: var(--ink); border-color: var(--accent-dim); }
+
+  .key-banner{
+    background: var(--panel); border:1px solid var(--accent-dim);
+    border-radius: var(--radius); padding: 14px 20px; margin-bottom: 22px;
+    display:flex; align-items:center; gap:14px; font-size: 13.5px; color: var(--ink-dim);
+  }
+  .key-banner b{ color: var(--ink); }
+  .key-banner .header-spacer{ flex:1; }
+
+  /* ---------- Filters ---------- */
+  .filter-bar{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    margin-bottom: 22px;
+  }
+  #searchInput{
+    flex: 1; min-width: 180px;
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    color: var(--ink); padding: 11px 14px; border-radius: 10px;
+    font-family: inherit; font-size: 14px;
+  }
+  #searchInput:focus{ outline:none; border-color: var(--teal); }
+  .genre-select{
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    color: var(--ink); padding: 11px 14px; border-radius: 10px;
+    font-family: inherit; font-size: 13.5px; cursor:pointer;
+  }
+  .genre-select:focus{ outline:none; border-color: var(--teal); }
+  .genre-label-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .genre-toggle-btn{
+    background:none; border:1px solid var(--panel-edge); color:var(--ink-dim);
+    border-radius:6px; padding:3px 9px; font-size:11.5px; cursor:pointer;
+    font-family:inherit; transition: all .15s;
+  }
+  .genre-toggle-btn:hover{ border-color:var(--teal); color:var(--ink); }
+  .genre-toggle-btn.open{ border-color:var(--teal); color:var(--teal); }
+  .genre-pills{ display:flex; flex-wrap:wrap; gap:5px; min-height:22px; }
+  .genre-pill{
+    background:var(--panel); border:1px solid var(--panel-edge);
+    color:var(--ink-dim); font-size:11px; border-radius:20px; padding:2px 10px;
+    cursor:pointer; transition: all .15s;
+  }
+  .genre-pill:hover{ border-color:var(--ink-dim); color:var(--ink); }
+  .genre-pill-empty{ font-size:11.5px; color:var(--ink-faint); font-style:italic; }
+  .genre-grid-wrap{ overflow:hidden; max-height:0; transition: max-height .25s ease, margin-top .2s; }
+  .genre-grid-wrap.open{ max-height:400px; margin-top:10px; }
+  .genre-grid-wrap.hidden{ display:none; }
+  .card-genres{ font-size:10.5px; color: var(--ink-dim); }
+  .card-actors{ font-size:10.5px; color: var(--ink-faint); }
+  .card-actors span{ cursor:pointer; }
+  .card-actors span:hover{ color: var(--ink); text-decoration:underline; }
+  .chip{
+    border: 1px solid var(--panel-edge); background: var(--panel);
+    color: var(--ink-dim); padding: 8px 14px; border-radius: 999px;
+    font-size: 12.5px; font-weight:600; letter-spacing:0.02em;
+    cursor:pointer; display:flex; align-items:center; gap:7px;
+    transition: all .12s ease; white-space:nowrap;
+  }
+  .chip .dot{ width:8px; height:8px; border-radius:50%; }
+  .chip.active{ color: var(--ink); border-color: currentColor; background: var(--bg-soft); }
+  .chip:hover{ border-color: var(--ink-dim); }
+
+  /* ---------- Grid ---------- */
+  .grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr));
+    gap: 22px;
+  }
+  .card{
+    position: relative;
+    background: linear-gradient(160deg, #1d1c21, #111012);
+    border: 1px solid var(--panel-edge);
+    border-radius: 12px; overflow:hidden;
+    cursor:pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    aspect-ratio: 2 / 3;
+  }
+  .card:hover{ transform: translateY(-5px) scale(1.015); box-shadow: var(--shadow); border-color: #44434c; }
+  .card-poster{
+    position: absolute; inset: 0;
+    background: center/cover no-repeat;
+  }
+  .card-poster.no-art{
+    display:flex; align-items:center; justify-content:center; padding: 18px;
+    background: linear-gradient(160deg, #232227, #121113);
+  }
+  .poster-fallback-title{
+    font-family:'Oswald',sans-serif; font-size:15px; color: var(--ink-dim); line-height:1.35; text-align:center;
+  }
+  .card-overlay{
+    position:absolute; left:0; right:0; bottom:0;
+    padding: 28px 12px 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 55%, transparent 100%);
+    opacity: 0; transition: opacity .18s ease;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .card:hover .card-overlay{ opacity: 1; }
+  .card-title{ font-family:'Oswald',sans-serif; font-size:14px; line-height:1.25; color: var(--ink); }
+  .card-year{ color: var(--ink-dim); font-size:11px; }
+  .card-formats{ display:flex; flex-wrap:wrap; gap:4px; }
+  .badge{
+    font-size: 9px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    padding: 3px 7px; border-radius: 6px; white-space:nowrap; color:#14141a;
+  }
+
+  .empty-state{ text-align:center; padding: 70px 20px; color: var(--ink-faint); }
+  .empty-state .reel-big{
+    width:64px;height:64px;border-radius:50%;border:4px solid var(--panel-edge);
+    margin: 0 auto 18px; position:relative;
+  }
+  .empty-state h3{ color: var(--ink-dim); margin-bottom:6px; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position: fixed; inset:0; background: rgba(10,8,14,0.72);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background: var(--bg-soft); border:1px solid var(--panel-edge);
+    border-radius: var(--radius); width: 100%; max-width: 560px;
+    max-height: 90vh; overflow-y:auto; box-shadow: var(--shadow);
+  }
+  .modal-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 20px 24px; border-bottom: 1px solid var(--panel-edge);
+  }
+  .modal-head h2{ font-size:18px; margin:0; }
+  .modal-close{ background:none;border:none;color:var(--ink-faint);font-size:22px;cursor:pointer;line-height:1; }
+  .modal-close:hover{ color: var(--ink); }
+  .modal-body{ padding: 22px 24px; display:flex; flex-direction:column; gap:16px; }
+  .field label{
+    display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.06em;
+    color: var(--ink-faint); margin-bottom:6px; font-weight:600;
+  }
+  .field input, .field textarea{
+    width:100%; background: var(--panel); border:1px solid var(--panel-edge);
+    color: var(--ink); padding: 11px 13px; border-radius: 9px;
+    font-family: inherit; font-size:14px;
+  }
+  .field input:focus, .field textarea:focus{ outline:none; border-color: var(--accent); }
+  .field textarea{ resize: vertical; min-height: 60px; }
+  .field textarea.description-box{ min-height: 150px; }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+
+  .tmdb-search-row{ display:flex; gap:8px; }
+  .tmdb-search-row input{ flex:1; }
+  .tmdb-results{
+    display:flex; flex-direction:column; gap:6px; max-height: 220px; overflow-y:auto;
+    border: 1px solid var(--panel-edge); border-radius: 9px; padding: 6px;
+    background: var(--panel);
+  }
+  .tmdb-result{
+    display:flex; gap:10px; align-items:center; padding:7px; border-radius:7px;
+    cursor:pointer; transition: background .12s ease;
+  }
+  .tmdb-result:hover{ background: var(--bg-soft); }
+  .tmdb-result img{ width:34px; height:50px; object-fit:cover; border-radius:4px; background: var(--bg-soft); flex-shrink:0; }
+  .tmdb-result .no-thumb{ width:34px; height:50px; border-radius:4px; background: var(--bg-soft); flex-shrink:0; }
+  .tmdb-result-title{ font-size:13.5px; font-weight:600; }
+  .tmdb-result-year{ font-size:11.5px; color: var(--ink-faint); }
+  .tmdb-result.dupe{ background: var(--bg-soft); border: 1px solid var(--teal); }
+  .tmdb-result-dupe-tag{
+    font-size:10.5px; font-weight:600; color: var(--teal);
+    display:flex; align-items:center; gap:4px; margin-top:2px;
+  }
+  .tmdb-status{ font-size:12.5px; color: var(--ink-faint); }
+
+  .poster-preview-row{ display:flex; gap:14px; align-items:flex-start; }
+  .trailer-embed-wrap{
+    position:relative; width:100%; aspect-ratio: 16/9;
+    border-radius:9px; overflow:hidden; background:#000; margin-top:10px;
+  }
+  .trailer-embed-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  #trailerPlayerEl{ position:absolute; inset:0; width:100%; height:100%; }
+  .trailer-embed-wrap.trailer-fallback{
+    position:static; aspect-ratio:auto; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:22px;
+    text-align:center; color:var(--ink-dim); font-size:13px; background:var(--panel);
+    border:1px solid var(--panel-edge);
+  }
+  .trailer-embed-wrap.trailer-fallback .btn{ font-size:12.5px; }
+  .poster-preview{
+    width:70px; height:104px; border-radius:8px; flex-shrink:0;
+    background: var(--panel) center/cover no-repeat; border:1px solid var(--panel-edge);
+    display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:9px; text-align:center;
+  }
+
+  .status-toggle{ display:flex; gap:8px; }
+  .status-option{
+    flex:1; border:1.5px solid var(--panel-edge); border-radius:9px;
+    padding:11px 12px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600;
+    color: var(--ink-dim); background: var(--panel);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition: all .12s ease; user-select:none;
+  }
+  .status-option:hover{ border-color: var(--ink-dim); }
+  .status-option.active{ background: var(--bg-soft); color: var(--ink); border-color: var(--accent); }
+
+  .format-grid{ display:grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .format-option{
+    border:1.5px solid var(--panel-edge); border-radius:9px; padding:10px 12px;
+    cursor:pointer; font-size:13px; font-weight:600; color: var(--ink-dim);
+    display:flex; align-items:center; gap:8px; transition: all .12s ease; user-select:none;
+  }
+  .format-option .dot{ width:9px;height:9px;border-radius:50%; }
+  .format-option .check{ margin-left:auto; opacity:0; font-size:13px; }
+  .format-option.selected{ background: var(--panel); color: var(--ink); }
+  .format-option.selected .check{ opacity:1; }
+  .field-hint{ font-size:11.5px; color: var(--ink-faint); margin-top:6px; }
+
+  .modal-foot{
+    display:flex; justify-content:space-between; gap:10px;
+    padding: 18px 24px; border-top: 1px solid var(--panel-edge);
+  }
+
+  .toast{
+    position: fixed; bottom: 24px; left:50%; transform: translateX(-50%) translateY(20px);
+    background: var(--panel); border:1px solid var(--accent); color: var(--ink);
+    padding: 12px 20px; border-radius: 10px; font-size: 14px;
+    box-shadow: var(--shadow); opacity:0; pointer-events:none;
+    transition: all .25s ease; z-index: 200; display:flex; align-items:center; gap:10px;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  footer{ text-align:center; padding: 30px 20px 50px; color: var(--ink-faint); font-size:12.5px; }
+
+  @media (max-width: 560px){
+    .header-inner{ flex-wrap: wrap; }
+    .btn span.label{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo"><span class="reel"></span><span class="display">Reel Shelf</span></div>
+    <div class="header-spacer"></div>
+    <button class="btn btn-ghost" id="settingsBtn" title="TMDB API key">⚙ <span class="label">TMDB Key</span></button>
+    <button class="btn btn-ghost" id="exportBtn" title="Export library">⬇ <span class="label">Export</span></button>
+    <button class="btn btn-ghost" id="importBtn" title="Import library">⬆ <span class="label">Import</span></button>
+    <input type="file" id="importFile" accept="application/json">
+    <button class="btn btn-primary" id="addBtn">＋ <span class="label">Add Title</span></button>
+  </div>
+</header>
+
+<main>
+
+  <div class="view-tabs" id="viewTabs">
+    <button type="button" class="view-tab active" data-view="shelf">📀 My Shelf <span class="view-tab-count" id="shelfTabCount">0</span></button>
+    <button type="button" class="view-tab" data-view="wishlist">⭐ Wishlist <span class="view-tab-count" id="wishlistTabCount">0</span></button>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="key-banner" id="keyBanner" style="display:none;">
+    <span>🔑</span>
+    <span>No TMDB API key set yet — covers and details won't load until you add one. <b>Get a free key at themoviedb.org</b>, then add it via "TMDB Key" above.</span>
+    <div class="header-spacer"></div>
+    <button class="btn btn-primary" id="bannerSettingsBtn">Add Key</button>
+  </div>
+
+  <div class="filter-bar">
+    <input id="searchInput" type="text" placeholder="Search by title, genre, actor, location, or description…">
+    <select id="genreFilter" class="genre-select">
+      <option value="ALL">All Genres</option>
+    </select>
+    <div class="chip active" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All</div>
+    <div class="chip" data-format="DVD"><span class="dot" style="background:var(--c-dvd)"></span>DVD</div>
+    <div class="chip" data-format="Blu-ray"><span class="dot" style="background:var(--c-bluray)"></span>Blu-ray</div>
+    <div class="chip" data-format="Blu-ray Ultra 4K"><span class="dot" style="background:var(--c-4k)"></span>Ultra Blu-ray</div>
+    <div class="chip" data-format="Apple TV Digital 4K"><span class="dot" style="background:var(--c-appletv)"></span>Apple TV</div>
+    <div class="chip" data-format="Fandango at Home"><span class="dot" style="background:var(--c-fandango)"></span>Fandango</div>
+    <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="reel-big"></div>
+    <h3>The shelf is empty</h3>
+    <div>Add a title and search TMDB to pull in cover art and details.</div>
+  </div>
+
+</main>
+
+<footer>Reel Shelf — self-hosted, shared across every device pointed at this server.</footer>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Add Title</h2>
+      <button class="modal-close" id="modalCloseBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="field">
+        <label>Find on TMDB</label>
+        <div class="tmdb-search-row">
+          <input id="f_title" type="text" placeholder="e.g. Heat">
+          <button class="btn btn-primary" id="tmdbSearchBtn">Search</button>
+        </div>
+        <div class="field-hint" id="tmdbStatus"></div>
+      </div>
+
+      <div class="tmdb-results" id="tmdbResults" style="display:none;"></div>
+
+      <div class="poster-preview-row">
+        <div class="poster-preview" id="posterPreview">No cover</div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:12px;">
+          <div class="field-row">
+            <div class="field">
+              <label>Year</label>
+              <input id="f_year" type="text" placeholder="1995">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="genre-label-row">
+          <label style="margin:0">Trailer</label>
+          <button type="button" id="trailerToggleBtn" class="genre-toggle-btn" style="display:none;">▶ Show trailer</button>
+        </div>
+        <div class="field-hint" id="trailerStatus"></div>
+        <div class="trailer-embed-wrap" id="trailerEmbedWrap" style="display:none;"></div>
+        <input id="f_trailer_url" type="text" placeholder="Paste a YouTube link to set or override the trailer" style="margin-top:8px;">
+      </div>
+
+      <div class="field">
+        <label>Status</label>
+        <div class="status-toggle" id="statusToggle">
+          <button type="button" class="status-option" data-status="shelf">📀 My Shelf</button>
+          <button type="button" class="status-option" data-status="wishlist">⭐ Wishlist</button>
+        </div>
+        <div class="field-hint" id="statusHint"></div>
+      </div>
+
+      <div class="field">
+        <label id="formatGridLabel">Owned on (select all that apply) *</label>
+        <div class="format-grid" id="formatGrid"></div>
+      </div>
+
+      <div class="field">
+        <div class="genre-label-row">
+          <label style="margin:0">Genre</label>
+          <button type="button" id="genreToggleBtn" class="genre-toggle-btn">Edit genres</button>
+        </div>
+        <div id="genrePills" class="genre-pills"></div>
+        <div id="genreGridWrap" class="genre-grid-wrap hidden">
+          <div class="format-grid" id="genreGrid"></div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Shelf / Location</label>
+          <input id="f_location" type="text" placeholder="e.g. Living room, Shelf B">
+        </div>
+        <div class="field">
+          <label>Quality <span style="opacity:.6">(digital only)</span></label>
+          <select id="f_quality" class="genre-select" style="width:100%;">
+            <option value="">No quality set</option>
+            <option value="HD">HD</option>
+            <option value="4K">4K</option>
+            <option value="4K UHD + HDR">4K UHD + HDR</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Actors <span style="opacity:.6">(comma-separated)</span></label>
+        <input id="f_actors" type="text" placeholder="e.g. Al Pacino, Robert De Niro, Val Kilmer">
+        <div class="field-hint">Auto-filled with top cast when you pull a title in from TMDB. Searchable below.</div>
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea id="f_notes" class="description-box" placeholder="Steelbook, gift from..., needs rewatch, etc. (TMDB overview gets added here too)"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="deleteBtn" style="display:none; border-color:var(--red); color:var(--red);">Remove from shelf</button>
+      <div style="flex:1"></div>
+      <button class="btn" id="cancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-head">
+      <h2>TMDB API Key</h2>
+      <button class="modal-close" id="settingsCloseBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>API Key (v3 auth)</label>
+        <input id="apiKeyInput" type="text" placeholder="Paste your TMDB API key">
+        <div class="field-hint">Free at themoviedb.org → Settings → API. Saved on this server and shared by everyone who uses it — never sent anywhere except TMDB's API.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button class="btn" id="settingsCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="settingsSaveBtn">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "reelshelf_library_v2";
+  const KEY_STORAGE = "reelshelf_tmdb_key";
+  const TMDB_IMG_THUMB = "https://image.tmdb.org/t/p/w92";
+  const TMDB_IMG_CARD = "https://image.tmdb.org/t/p/w342";
+  const TMDB_IMG_PREVIEW = "https://image.tmdb.org/t/p/w185";
+
+  const FORMATS = [
+    { id: "DVD",                  label: "DVD",                color: "var(--c-dvd)" },
+    { id: "Blu-ray",               label: "Blu-ray",             color: "var(--c-bluray)" },
+    { id: "Blu-ray Ultra 4K",      label: "Ultra Blu-ray",       color: "var(--c-4k)" },
+    { id: "Apple TV Digital 4K",   label: "Apple TV (Digital)",  color: "var(--c-appletv)" },
+    { id: "Fandango at Home",      label: "Fandango at Home",    color: "var(--c-fandango)" },
+    { id: "Prime Video",           label: "Prime Video",         color: "var(--c-prime)" },
+  ];
+  const formatById = Object.fromEntries(FORMATS.map(f => [f.id, f]));
+
+  const GENRES = [
+    "Action", "Adventure", "Animation", "Christmas", "Comedy", "Crime", "Documentary",
+    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
+    "Romance", "Sci-Fi", "Thriller", "War", "Western"
+  ];
+  // Genres in here are hidden from the grid whenever "All Genres" is selected —
+  // they only show up once the person explicitly picks that genre from the
+  // dropdown. Handy for stuff like Christmas movies you don't want cluttering
+  // the shelf in July.
+  const GENRES_HIDDEN_FROM_ALL = ["Christmas"];
+  // TMDB's genre IDs -> our genre labels (used to auto-fill genre from search results)
+  const TMDB_GENRE_MAP = {
+    28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+    99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
+    27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance",
+    878: "Sci-Fi", 10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western"
+  };
+
+  let selectedGenres = new Set();
+  let activeGenre = "ALL";
+
+  let library = [];
+  let activeFormat = "ALL";
+  let searchTerm = "";
+  let editingId = null;
+  let selectedFormats = new Set();
+  let currentPosterPath = null; // TMDB relative path, e.g. /abc.jpg
+  let currentTmdbId = null; // TMDB movie id of whatever's currently filled into the modal, if known
+  let activeView = "shelf"; // "shelf" | "wishlist" — which tab is showing
+  let currentStatus = "shelf"; // status selected inside the open modal
+  let trailerExpanded = false; // whether the trailer embed is showing in the open modal
+  let ytPlayer = null; // the currently active YT.Player instance, if any
+  const failedTrailerKeys = new Set(); // video ids known to fail in this session, so we don't re-popup
+  let ytApiCallbacks = []; // queued callbacks waiting on the YouTube IFrame API to load
+
+  function loadYoutubeApi(callback){
+    if(window.YT && window.YT.Player){ callback(); return; }
+    ytApiCallbacks.push(callback);
+    if(document.getElementById('youtubeIframeApiScript')) return; // already loading
+    const tag = document.createElement('script');
+    tag.id = 'youtubeIframeApiScript';
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = function(){
+      const cbs = ytApiCallbacks;
+      ytApiCallbacks = [];
+      cbs.forEach(cb => cb());
+    };
+  }
+
+  function extractYoutubeId(input){
+    if(!input) return null;
+    const trimmed = input.trim();
+    if(!trimmed) return null;
+    if(/^[\w-]{11}$/.test(trimmed)) return trimmed; // raw video id
+    try{
+      const url = new URL(trimmed);
+      if(url.hostname.includes('youtu.be')) return url.pathname.slice(1) || null;
+      const v = url.searchParams.get('v');
+      if(v) return v;
+      const embedMatch = url.pathname.match(/\/embed\/([\w-]{11})/);
+      if(embedMatch) return embedMatch[1];
+    }catch(e){ /* not a parseable URL — not a trailer link we can use */ }
+    return null;
+  }
+
+  function isWishlist(item){
+    return !!item && item.status === "wishlist";
+  }
+
+  // One-time migration: the old free-text "Platform" field was replaced by a
+  // "Quality" selector. Infer a quality where the old text clearly says one,
+  // and otherwise preserve the original text in Notes so nothing is lost.
+  function migrateItem(item){
+    if(!item || item.platform === undefined) return item;
+    if(!item.quality){
+      const p = String(item.platform).toLowerCase();
+      if(p.includes('uhd') || p.includes('hdr')) item.quality = '4K UHD + HDR';
+      else if(p.includes('4k')) item.quality = '4K';
+      else if(p.includes('hd')) item.quality = 'HD';
+      if(item.platform.trim() && !(item.notes||'').includes(item.platform.trim())){
+        item.notes = (item.notes ? item.notes + '\n' : '') + 'Platform (legacy): ' + item.platform.trim();
+      }
+    }
+    delete item.platform;
+    return item;
+  }
+
+  // ---------- Storage (server-backed: shared library + shared TMDB key) ----------
+  let hasTmdbKey = false; // cached flag from /api/settings — actual key never reaches the browser
+
+  async function apiRequest(method, url, body){
+    const res = await fetch(url, {
+      method,
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if(!res.ok){
+      let msg = `Request failed (${res.status})`;
+      try{ const j = await res.json(); if(j && j.error) msg = j.error; }catch(e){ /* ignore */ }
+      throw new Error(msg);
+    }
+    if(res.status === 204) return null;
+    return res.json();
+  }
+
+  async function load(){
+    try{
+      const items = await apiRequest('GET', '/api/library');
+      library = (items || []).map(migrateItem);
+    }catch(e){
+      console.error("Failed to load library", e);
+      library = [];
+      showToast('Could not reach the server — is it running?');
+    }
+  }
+
+  async function loadSettingsState(){
+    try{
+      const s = await apiRequest('GET', '/api/settings');
+      hasTmdbKey = !!(s && s.hasKey);
+    }catch(e){
+      console.error('Failed to load settings', e);
+      hasTmdbKey = false;
+    }
+  }
+
+  function uid(){
+    return 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+  function getApiKey(){
+    // The real key lives server-side only; this just reports whether one is set.
+    return hasTmdbKey ? '1' : '';
+  }
+
+  // ---------- Toast ----------
+  let toastTimer;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  // ---------- Stats ----------
+  function renderStats(){
+    const row = document.getElementById('statsRow');
+    const viewItems = library.filter(m => isWishlist(m) === (activeView === 'wishlist'));
+    const total = viewItems.length;
+    const noun = activeView === 'wishlist'
+      ? `wishlist title${total===1?'':'s'}`
+      : `title${total===1?'':'s'} owned`;
+    let html = `<div class="stat-pill"><b>${total}</b> ${noun}</div>`;
+    FORMATS.forEach(f => {
+      const count = viewItems.filter(m => (m.formats||[]).includes(f.id)).length;
+      if(count > 0){
+        html += `<div class="stat-pill"><span class="dot" style="background:${f.color}"></span><b>${count}</b> ${f.label}</div>`;
+      }
+    });
+    row.innerHTML = html;
+
+    document.getElementById('keyBanner').style.display = getApiKey() ? 'none' : 'flex';
+    document.getElementById('shelfTabCount').textContent = library.filter(m => !isWishlist(m)).length;
+    document.getElementById('wishlistTabCount').textContent = library.filter(isWishlist).length;
+    renderGenreFilterOptions();
+  }
+
+  function renderGenreFilterOptions(){
+    const sel = document.getElementById('genreFilter');
+    const prev = sel.value || activeGenre;
+    const used = new Set();
+    library.filter(m => isWishlist(m) === (activeView === 'wishlist'))
+      .forEach(m => (m.genres||[]).forEach(g => used.add(g)));
+    // Show all known genres plus any custom ones already used in this view
+    const all = [...GENRES, ...[...used].filter(g => !GENRES.includes(g))].sort();
+    sel.innerHTML = '<option value="ALL">All Genres</option>' +
+      all.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+    sel.value = all.includes(prev) ? prev : 'ALL';
+    activeGenre = sel.value;
+  }
+
+  // ---------- Grid ----------
+  function matchesFilters(item){
+    if(isWishlist(item) !== (activeView === 'wishlist')) return false;
+    if(activeFormat !== 'ALL' && !(item.formats||[]).includes(activeFormat)) return false;
+    if(activeGenre !== 'ALL' && !(item.genres||[]).includes(activeGenre)) return false;
+    if(activeGenre === 'ALL' && (item.genres||[]).some(g => GENRES_HIDDEN_FROM_ALL.includes(g))) return false;
+    if(searchTerm){
+      const hay = (item.title + ' ' + (item.genres||[]).join(' ') + ' ' + (item.actors||[]).join(' ') + ' ' + (item.location||'') + ' ' + (item.notes||'') + ' ' + (item.quality||'')).toLowerCase();
+      if(!hay.includes(searchTerm)) return false;
+    }
+    return true;
+  }
+
+  function renderGrid(){
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('emptyState');
+    const items = library.filter(matchesFilters).sort((a,b)=> a.title.localeCompare(b.title));
+    const viewTotal = library.filter(m => isWishlist(m) === (activeView === 'wishlist')).length;
+
+    if(items.length === 0){
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      if(activeView === 'wishlist'){
+        empty.querySelector('h3').textContent = viewTotal === 0 ? 'Your wishlist is empty' : 'No matches';
+        empty.querySelector('div:last-child').textContent = viewTotal === 0
+          ? 'Add a title you want to pick up, and move it to My Shelf once you own it.'
+          : 'Try a different search or filter.';
+      }else{
+        empty.querySelector('h3').textContent = viewTotal === 0 ? 'The shelf is empty' : 'No matches';
+        empty.querySelector('div:last-child').textContent = viewTotal === 0
+          ? 'Add a title and search TMDB to pull in cover art and details.'
+          : 'Try a different search or format filter.';
+      }
+      return;
+    }
+    empty.style.display = 'none';
+
+    grid.innerHTML = items.map(item => {
+      const formats = item.formats || [];
+      const badges = formats.map(fid => {
+        const f = formatById[fid];
+        return f ? `<div class="badge" style="background:${f.color}">${f.label}</div>` : '';
+      }).join('');
+      const poster = item.posterPath
+        ? `<div class="card-poster" style="background-image:url('${TMDB_IMG_CARD}${item.posterPath}')"></div>`
+        : `<div class="card-poster no-art"><div class="poster-fallback-title">${escapeHtml(item.title)}</div></div>`;
+
+      return `
+        <div class="card" data-id="${item.id}" title="${escapeHtml(item.title)}">
+          ${poster}
+          <div class="card-overlay">
+            <div class="card-title">${escapeHtml(item.title)}</div>
+            ${item.year ? `<div class="card-year">${escapeHtml(item.year)}</div>` : ''}
+            ${(item.genres||[]).length ? `<div class="card-genres">${escapeHtml((item.genres||[]).join(' • '))}</div>` : ''}
+            ${(item.actors||[]).length ? `<div class="card-actors">${(item.actors||[]).slice(0,3).map(a => `<span class="actor-link" data-actor="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join(', ')}</div>` : ''}
+            <div class="card-formats">${badges}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderAll(){
+    renderStats();
+    renderGrid();
+  }
+
+  // ---------- View switching (My Shelf <-> Wishlist) ----------
+  function switchView(view){
+    activeView = view === 'wishlist' ? 'wishlist' : 'shelf';
+    // Reset filters left over from the other tab — this is what was making
+    // titles seem to "disappear" when switching: a stale genre/format/search
+    // filter from one tab silently hid everything in the other.
+    activeFormat = 'ALL';
+    activeGenre = 'ALL';
+    searchTerm = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('genreFilter').value = 'ALL';
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.format === 'ALL'));
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === activeView));
+    document.querySelector('#addBtn .label').textContent = activeView === 'wishlist' ? 'Add to Wishlist' : 'Add Title';
+    renderAll();
+  }
+
+  // ---------- Trailer embed ----------
+  function destroyTrailerPlayer(){
+    if(ytPlayer){
+      try{ ytPlayer.destroy(); }catch(e){ /* already gone */ }
+      ytPlayer = null;
+    }
+  }
+
+  function resetTrailerWrap(wrap){
+    destroyTrailerPlayer();
+    wrap.className = 'trailer-embed-wrap';
+    wrap.innerHTML = '';
+    delete wrap.dataset.key;
+  }
+
+  function createTrailerPlayer(key){
+    const wrap = document.getElementById('trailerEmbedWrap');
+    destroyTrailerPlayer();
+    wrap.className = 'trailer-embed-wrap';
+    wrap.innerHTML = '<div id="trailerPlayerEl"></div>';
+    loadYoutubeApi(() => {
+      // The modal may have moved on to a different trailer (or closed) by the
+      // time the API finishes loading — bail out if so.
+      const urlField = document.getElementById('f_trailer_url');
+      if(!urlField || extractYoutubeId(urlField.value) !== key) return;
+      ytPlayer = new YT.Player('trailerPlayerEl', {
+        videoId: key,
+        playerVars: { rel: 0 },
+        events: {
+          onError: () => handleTrailerError(key)
+        }
+      });
+    });
+  }
+
+  function showTrailerFallback(key, opts){
+    opts = opts || {};
+    const wrap = document.getElementById('trailerEmbedWrap');
+    const status = document.getElementById('trailerStatus');
+    const watchUrl = `https://www.youtube.com/watch?v=${key}`;
+    destroyTrailerPlayer();
+    wrap.className = 'trailer-embed-wrap trailer-fallback';
+    wrap.dataset.key = key;
+    wrap.innerHTML = `
+      <div>This trailer can't play here — opening it on YouTube…</div>
+      <a href="${watchUrl}" target="_blank" rel="noopener" class="btn btn-primary">Open on YouTube ↗</a>`;
+    if(opts.autoRedirect){
+      // Best-effort automatic redirect. Some browsers block popups that weren't
+      // triggered by a direct click, so the button above is the guaranteed fallback.
+      const win = window.open(watchUrl, '_blank', 'noopener');
+      if(!win){
+        status.textContent = 'Your browser blocked the automatic redirect — use the button above to open it on YouTube.';
+      }
+    }
+  }
+
+  function handleTrailerError(key){
+    failedTrailerKeys.add(key);
+    showTrailerFallback(key, { autoRedirect: true });
+  }
+
+  function renderTrailerEmbed(){
+    const key = extractYoutubeId(document.getElementById('f_trailer_url').value);
+    const wrap = document.getElementById('trailerEmbedWrap');
+    const toggleBtn = document.getElementById('trailerToggleBtn');
+    const status = document.getElementById('trailerStatus');
+
+    if(!key){
+      resetTrailerWrap(wrap);
+      wrap.style.display = 'none';
+      toggleBtn.style.display = 'none';
+      status.textContent = 'No trailer linked yet — pull one in from TMDB above, or paste a YouTube link below.';
+      return;
+    }
+
+    // Owned titles keep the trailer tucked behind a toggle since you already
+    // know the movie; wishlist titles show it right away to help you decide.
+    const collapsedByDefault = currentStatus === 'shelf';
+    if(collapsedByDefault){
+      toggleBtn.style.display = 'inline-flex';
+      toggleBtn.textContent = trailerExpanded ? 'Hide trailer' : '▶ Show trailer';
+    }else{
+      toggleBtn.style.display = 'none';
+    }
+    status.textContent = '';
+
+    const show = !collapsedByDefault || trailerExpanded;
+    if(show){
+      wrap.style.display = 'block';
+      if(wrap.dataset.key !== key){
+        if(failedTrailerKeys.has(key)){
+          // Already know this one fails — show the fallback without popping
+          // another tab open every time the trailer section is re-shown.
+          showTrailerFallback(key, { autoRedirect: false });
+        }else{
+          wrap.dataset.key = key;
+          createTrailerPlayer(key);
+        }
+      }
+    }else{
+      resetTrailerWrap(wrap);
+      wrap.style.display = 'none';
+    }
+  }
+
+  // ---------- Status toggle (Shelf vs Wishlist) ----------
+  function renderStatusToggle(){
+    document.querySelectorAll('#statusToggle .status-option').forEach(el => {
+      el.addEventListener('click', () => {
+        currentStatus = el.dataset.status;
+        updateStatusToggleSelection();
+      });
+    });
+  }
+  function updateStatusToggleSelection(){
+    document.querySelectorAll('#statusToggle .status-option').forEach(el => {
+      el.classList.toggle('active', el.dataset.status === currentStatus);
+    });
+    const label = document.getElementById('formatGridLabel');
+    const hint = document.getElementById('statusHint');
+    if(currentStatus === 'wishlist'){
+      label.textContent = 'Owned on (optional — fill in once you pick it up)';
+      hint.textContent = 'Wishlist titles don\'t need a format yet.';
+    }else{
+      label.textContent = 'Owned on (select all that apply) *';
+      hint.textContent = '';
+    }
+    trailerExpanded = currentStatus === 'wishlist';
+    renderTrailerEmbed();
+  }
+
+  // ---------- Format multi-select ----------
+  function renderFormatGrid(){
+    const fg = document.getElementById('formatGrid');
+    fg.innerHTML = FORMATS.map(f => `
+      <div class="format-option" data-format="${f.id}">
+        <span class="dot" style="background:${f.color}"></span>${f.label}
+        <span class="check">✓</span>
+      </div>`).join('');
+    fg.querySelectorAll('.format-option').forEach(el => {
+      el.addEventListener('click', () => {
+        const fid = el.dataset.format;
+        if(selectedFormats.has(fid)) selectedFormats.delete(fid);
+        else selectedFormats.add(fid);
+        updateFormatGridSelection();
+      });
+    });
+  }
+  function updateFormatGridSelection(){
+    document.querySelectorAll('#formatGrid .format-option').forEach(el => {
+      const on = selectedFormats.has(el.dataset.format);
+      el.classList.toggle('selected', on);
+      el.style.borderColor = on ? formatById[el.dataset.format].color : '';
+    });
+  }
+
+  function renderGenreGrid(){
+    const gg = document.getElementById('genreGrid');
+    gg.innerHTML = GENRES.map(g => `
+      <div class="format-option" data-genre="${g}">
+        ${g}
+        <span class="check">✓</span>
+      </div>`).join('');
+    gg.querySelectorAll('.format-option').forEach(el => {
+      el.addEventListener('click', () => {
+        const g = el.dataset.genre;
+        if(selectedGenres.has(g)) selectedGenres.delete(g);
+        else selectedGenres.add(g);
+        updateGenreGridSelection();
+        renderGenrePills();
+      });
+    });
+
+    document.getElementById('genreToggleBtn').addEventListener('click', () => {
+      const wrap = document.getElementById('genreGridWrap');
+      const btn = document.getElementById('genreToggleBtn');
+      const isOpen = wrap.classList.contains('open');
+      wrap.classList.remove('hidden');
+      wrap.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+      btn.textContent = isOpen ? 'Edit genres' : 'Done';
+    });
+  }
+
+  function renderGenrePills(){
+    const container = document.getElementById('genrePills');
+    if(!container) return;
+    if(selectedGenres.size === 0){
+      container.innerHTML = '<span class="genre-pill-empty">None selected — click Edit genres to add</span>';
+      return;
+    }
+    container.innerHTML = [...selectedGenres].map(g =>
+      `<span class="genre-pill" title="Click to remove" data-genre="${escapeHtml(g)}">${escapeHtml(g)} ×</span>`
+    ).join('');
+    container.querySelectorAll('.genre-pill').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedGenres.delete(el.dataset.genre);
+        updateGenreGridSelection();
+        renderGenrePills();
+      });
+    });
+  }
+
+  function updateGenreGridSelection(){
+    document.querySelectorAll('#genreGrid .format-option').forEach(el => {
+      el.classList.toggle('selected', selectedGenres.has(el.dataset.genre));
+    });
+  }
+
+  // ---------- Poster preview ----------
+  function setPosterPreview(path){
+    currentPosterPath = path || null;
+    const el = document.getElementById('posterPreview');
+    if(path){
+      el.style.backgroundImage = `url('${TMDB_IMG_PREVIEW}${path}')`;
+      el.textContent = '';
+    }else{
+      el.style.backgroundImage = '';
+      el.textContent = 'No cover';
+    }
+  }
+
+  // ---------- Duplicate detection ----------
+  // Matches primarily by TMDB id (reliable); falls back to a loosely-normalized
+  // title match (+ year, when both sides have one) for items that predate the
+  // tmdbId field, or were added manually without a TMDB search. The normalizer
+  // shrugs off punctuation, accents, curly quotes, and stray whitespace so
+  // e.g. "Léon: The Professional" and "leon the professional" still match.
+  // Excludes whatever's currently being edited.
+  function normalizeTitleForMatch(s){
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFKD').replace(/[\u0300-\u036f]/g, '') // strip accents
+      .replace(/[\u2018\u2019\u201a\u201b]/g, "'")         // curly single quotes -> straight
+      .replace(/[\u201c\u201d\u201e\u201f]/g, '"')         // curly double quotes -> straight
+      .replace(/[:\-\u2013\u2014,.'"!?()]/g, ' ')          // punctuation -> space
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function findDuplicate({ tmdbId, title, year }){
+    return library.find(m => {
+      if(m.id === editingId) return false;
+      if(tmdbId && m.tmdbId && String(m.tmdbId) === String(tmdbId)) return true;
+      if(tmdbId && m.tmdbId) return false; // both known and didn't match above — not a dupe
+      if(!title) return false;
+      const sameTitle = m.title && normalizeTitleForMatch(m.title) === normalizeTitleForMatch(title);
+      if(!sameTitle) return false;
+      const y1 = (year || '').toString().trim();
+      const y2 = (m.year || '').toString().trim();
+      if(y1 || y2) return !!(y1 && y2 && y1 === y2); // if either side has a year, they must agree
+      return true; // neither side has any year on record — title match is all we can go on
+    });
+  }
+
+  function openExistingFromSearch(item){
+    document.getElementById('tmdbResults').style.display = 'none';
+    document.getElementById('tmdbStatus').textContent = '';
+    openModal(item);
+    showToast(`Already in your library — opened "${item.title}"`);
+  }
+
+  // ---------- TMDB search (proxied through our server — key never reaches the browser) ----------
+  async function searchTmdb(){
+    const query = document.getElementById('f_title').value.trim();
+    const statusEl = document.getElementById('tmdbStatus');
+    const resultsEl = document.getElementById('tmdbResults');
+
+    if(!query){
+      statusEl.textContent = 'Type a title first.';
+      return;
+    }
+    if(!hasTmdbKey){
+      statusEl.textContent = 'Add your TMDB API key first (top right "TMDB Key" button).';
+      return;
+    }
+
+    statusEl.textContent = 'Searching…';
+    resultsEl.style.display = 'none';
+
+    try{
+      const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(query)}`);
+      if(!res.ok){
+        if(res.status === 401 || res.status === 400) statusEl.textContent = 'TMDB rejected the configured key — check it under "TMDB Key".';
+        else statusEl.textContent = `TMDB error (${res.status}). Try again.`;
+        return;
+      }
+      const data = await res.json();
+      const results = (data.results || []).slice(0, 8);
+      if(results.length === 0){
+        statusEl.textContent = 'No matches found. You can still save manually.';
+        return;
+      }
+      statusEl.textContent = `${results.length} match${results.length===1?'':'es'} — pick one, or keep editing manually.`;
+      resultsEl.style.display = 'flex';
+      resultsEl.innerHTML = results.map(r => {
+        const year = (r.release_date || '').slice(0,4);
+        const thumb = r.poster_path
+          ? `<img src="${TMDB_IMG_THUMB}${r.poster_path}" alt="">`
+          : `<div class="no-thumb"></div>`;
+        const dupe = findDuplicate({ tmdbId: r.id, title: r.title, year });
+        return `
+          <div class="tmdb-result${dupe ? ' dupe' : ''}" data-id="${r.id}">
+            ${thumb}
+            <div>
+              <div class="tmdb-result-title">${escapeHtml(r.title)}</div>
+              <div class="tmdb-result-year">${year || 'Year unknown'}</div>
+              ${dupe ? `<div class="tmdb-result-dupe-tag">📚 Already in your ${dupe.status === 'wishlist' ? 'wishlist' : 'library'} — click to open</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+      resultsEl.querySelectorAll('.tmdb-result').forEach((el, idx) => {
+        el.addEventListener('click', () => {
+          const r = results[idx];
+          const year = (r.release_date || '').slice(0,4);
+          const dupe = findDuplicate({ tmdbId: r.id, title: r.title, year });
+          if(dupe) openExistingFromSearch(dupe);
+          else applyTmdbResult(r);
+        });
+      });
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = 'Could not reach the server.';
+    }
+  }
+
+  function applyTmdbResult(r){
+    document.getElementById('f_title').value = r.title || '';
+    document.getElementById('f_year').value = (r.release_date || '').slice(0,4);
+    currentTmdbId = String(r.id);
+    setPosterPreview(r.poster_path);
+    if(r.overview){
+      const notesEl = document.getElementById('f_notes');
+      if(!notesEl.value.trim()) notesEl.value = r.overview;
+    }
+    if(Array.isArray(r.genre_ids) && r.genre_ids.length){
+      const mapped = r.genre_ids.map(id => TMDB_GENRE_MAP[id]).filter(Boolean);
+      if(mapped.length){
+        selectedGenres = new Set(mapped);
+        updateGenreGridSelection();
+        renderGenrePills();
+      }
+    }
+    document.getElementById('tmdbResults').style.display = 'none';
+    document.getElementById('tmdbStatus').textContent = `Pulled in "${r.title}" from TMDB.`;
+    fetchTmdbCast(r.id);
+    fetchTmdbTrailer(r.id);
+  }
+
+  async function fetchTmdbCast(movieId){
+    if(!hasTmdbKey || !movieId) return;
+    try{
+      const res = await fetch(`/api/tmdb/movie/${encodeURIComponent(movieId)}/credits`);
+      if(!res.ok) return;
+      const data = await res.json();
+      const topCast = (data.cast || []).slice(0, 6).map(c => c.name).filter(Boolean);
+      if(topCast.length){
+        document.getElementById('f_actors').value = topCast.join(', ');
+      }
+    }catch(err){
+      console.error('Could not fetch cast', err);
+    }
+  }
+
+  async function fetchTmdbTrailer(movieId){
+    if(!hasTmdbKey || !movieId) return;
+    try{
+      const res = await fetch(`/api/tmdb/movie/${encodeURIComponent(movieId)}/videos`);
+      if(!res.ok) return;
+      const data = await res.json();
+      const vids = (data.results || []).filter(v => v.site === 'YouTube');
+      const best = vids.find(v => v.type === 'Trailer' && v.official)
+        || vids.find(v => v.type === 'Trailer')
+        || vids[0];
+      if(best && best.key){
+        document.getElementById('f_trailer_url').value = `https://www.youtube.com/watch?v=${best.key}`;
+        renderTrailerEmbed();
+      }
+    }catch(err){
+      console.error('Could not fetch trailer', err);
+    }
+  }
+
+  // ---------- Add/Edit Modal ----------
+  function openModal(item, presetStatus){
+    editingId = item ? item.id : null;
+    currentTmdbId = item ? (item.tmdbId || null) : null;
+    currentStatus = item ? (item.status === 'wishlist' ? 'wishlist' : 'shelf') : (presetStatus || 'shelf');
+    document.getElementById('modalTitle').textContent = item ? 'Edit Title' : 'Add Title';
+    document.getElementById('deleteBtn').style.display = item ? 'inline-flex' : 'none';
+    document.getElementById('f_title').value = item ? item.title : '';
+    document.getElementById('f_year').value = item ? (item.year||'') : '';
+    document.getElementById('f_location').value = item ? (item.location||'') : '';
+    document.getElementById('f_quality').value = item ? (item.quality||'') : '';
+    document.getElementById('f_notes').value = item ? (item.notes||'') : '';
+    document.getElementById('f_actors').value = item ? (item.actors||[]).join(', ') : '';
+    document.getElementById('f_trailer_url').value = (item && item.trailerKey) ? `https://www.youtube.com/watch?v=${item.trailerKey}` : '';
+    updateStatusToggleSelection(); // also (re)renders the trailer embed now that the URL field is set
+    document.getElementById('tmdbStatus').textContent = '';
+    document.getElementById('tmdbResults').style.display = 'none';
+    document.getElementById('tmdbResults').innerHTML = '';
+    setPosterPreview(item ? item.posterPath : null);
+    selectedFormats = new Set(item ? (item.formats||[]) : []);
+    updateFormatGridSelection();
+    selectedGenres = new Set(item ? (item.genres||[]) : []);
+    updateGenreGridSelection();
+    renderGenrePills();
+    // Collapse the genre grid and reset toggle button
+    const wrap = document.getElementById('genreGridWrap');
+    const btn = document.getElementById('genreToggleBtn');
+    wrap.classList.add('hidden');
+    wrap.classList.remove('open');
+    btn.classList.remove('open');
+    btn.textContent = 'Edit genres';
+    document.getElementById('modalOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('f_title').focus(), 50);
+  }
+  function closeModal(){
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+    currentTmdbId = null;
+    resetTrailerWrap(document.getElementById('trailerEmbedWrap'));
+  }
+
+  async function saveModal(){
+    const title = document.getElementById('f_title').value.trim();
+    if(!title){
+      showToast('Title is required');
+      document.getElementById('f_title').focus();
+      return;
+    }
+    if(currentStatus === 'shelf' && selectedFormats.size === 0){
+      showToast('Pick at least one format you own it on');
+      return;
+    }
+    const data = {
+      title,
+      status: currentStatus,
+      year: document.getElementById('f_year').value.trim(),
+      formats: Array.from(selectedFormats),
+      genres: Array.from(selectedGenres),
+      actors: document.getElementById('f_actors').value.split(',').map(s => s.trim()).filter(Boolean),
+      location: document.getElementById('f_location').value.trim(),
+      quality: document.getElementById('f_quality').value,
+      trailerKey: extractYoutubeId(document.getElementById('f_trailer_url').value),
+      notes: document.getElementById('f_notes').value.trim(),
+      posterPath: currentPosterPath,
+      tmdbId: currentTmdbId,
+    };
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    try{
+      if(editingId){
+        const updated = await apiRequest('PUT', `/api/library/${encodeURIComponent(editingId)}`, data);
+        const idx = library.findIndex(m => m.id === editingId);
+        if(idx > -1) library[idx] = updated;
+        showToast(currentStatus === 'wishlist' ? 'Saved to wishlist' : 'Saved changes');
+      }else{
+        const created = await apiRequest('POST', '/api/library', data);
+        library.push(created);
+        showToast(currentStatus === 'wishlist' ? 'Added to wishlist' : 'Added to shelf');
+      }
+      // Jump to whichever tab the saved item now belongs to, and clear any
+      // stale filters from the other tab so the item is never "missing".
+      switchView(currentStatus === 'wishlist' ? 'wishlist' : 'shelf');
+      closeModal();
+    }catch(e){
+      console.error(e);
+      showToast(e.message || 'Could not save — check the server');
+    }finally{
+      saveBtn.disabled = false;
+    }
+  }
+
+  async function deleteCurrent(){
+    if(!editingId) return;
+    if(!confirm('Remove this title from your shelf?')) return;
+    try{
+      await apiRequest('DELETE', `/api/library/${encodeURIComponent(editingId)}`);
+      library = library.filter(m => m.id !== editingId);
+      renderAll();
+      closeModal();
+      showToast('Removed from shelf');
+    }catch(e){
+      console.error(e);
+      showToast(e.message || 'Could not delete — check the server');
+    }
+  }
+
+  // ---------- Settings (API key) ----------
+  function openSettings(){
+    document.getElementById('apiKeyInput').value = '';
+    document.getElementById('apiKeyInput').placeholder = hasTmdbKey ? 'Key is set — paste a new one to replace it' : 'Paste your TMDB API key';
+    document.getElementById('settingsOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('apiKeyInput').focus(), 50);
+  }
+  function closeSettings(){
+    document.getElementById('settingsOverlay').classList.remove('open');
+  }
+  async function saveSettings(){
+    const val = document.getElementById('apiKeyInput').value;
+    try{
+      const s = await apiRequest('POST', '/api/settings', { tmdbKey: val });
+      hasTmdbKey = !!(s && s.hasKey);
+      closeSettings();
+      renderStats();
+      showToast('TMDB key saved for everyone using this server');
+    }catch(e){
+      console.error(e);
+      showToast(e.message || 'Could not save key — check the server');
+    }
+  }
+
+  // ---------- Export / Import ----------
+  function exportLibrary(){
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), library }, null, 2)],
+      { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `reelshelf-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  }
+
+  function importLibrary(file){
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try{
+        const parsed = JSON.parse(e.target.result);
+        const incoming = Array.isArray(parsed) ? parsed : parsed.library;
+        if(!Array.isArray(incoming)) throw new Error('Unrecognized file format');
+        const result = await apiRequest('POST', '/api/library/import', { library: incoming });
+        await load();
+        renderAll();
+        const added = result ? result.added : 0;
+        showToast(`Imported ${added} title${added===1?'':'s'}`);
+      }catch(err){
+        console.error(err);
+        showToast(err.message || 'Could not read that file');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- Wire up ----------
+  async function init(){
+    await Promise.all([load(), loadSettingsState()]);
+    renderFormatGrid();
+    renderGenreGrid();
+    renderStatusToggle();
+    renderAll();
+
+    document.querySelectorAll('.view-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchView(tab.dataset.view));
+    });
+
+    document.getElementById('addBtn').addEventListener('click', () => openModal(null, activeView));
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+    document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+    document.getElementById('saveBtn').addEventListener('click', saveModal);
+    document.getElementById('deleteBtn').addEventListener('click', deleteCurrent);
+    document.getElementById('modalOverlay').addEventListener('click', e => {
+      if(e.target.id === 'modalOverlay') closeModal();
+    });
+
+    document.getElementById('settingsBtn').addEventListener('click', openSettings);
+    document.getElementById('bannerSettingsBtn').addEventListener('click', openSettings);
+    document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
+    document.getElementById('settingsCancelBtn').addEventListener('click', closeSettings);
+    document.getElementById('settingsSaveBtn').addEventListener('click', saveSettings);
+    document.getElementById('settingsOverlay').addEventListener('click', e => {
+      if(e.target.id === 'settingsOverlay') closeSettings();
+    });
+
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape'){
+        if(document.getElementById('modalOverlay').classList.contains('open')) closeModal();
+        if(document.getElementById('settingsOverlay').classList.contains('open')) closeSettings();
+      }
+    });
+
+    document.getElementById('tmdbSearchBtn').addEventListener('click', searchTmdb);
+    document.getElementById('f_title').addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); searchTmdb(); }
+    });
+
+    document.getElementById('f_trailer_url').addEventListener('input', renderTrailerEmbed);
+    document.getElementById('trailerToggleBtn').addEventListener('click', () => {
+      trailerExpanded = !trailerExpanded;
+      renderTrailerEmbed();
+    });
+
+    document.getElementById('grid').addEventListener('click', e => {
+      const actorLink = e.target.closest('.actor-link');
+      if(actorLink){
+        e.stopPropagation();
+        const term = actorLink.dataset.actor;
+        document.getElementById('searchInput').value = term;
+        searchTerm = term.trim().toLowerCase();
+        renderGrid();
+        return;
+      }
+      const card = e.target.closest('.card');
+      if(!card) return;
+      const item = library.find(m => m.id === card.dataset.id);
+      if(item) openModal(item);
+    });
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      searchTerm = e.target.value.trim().toLowerCase();
+      renderGrid();
+    });
+
+    document.getElementById('genreFilter').addEventListener('change', e => {
+      activeGenre = e.target.value;
+      renderGrid();
+    });
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeFormat = chip.dataset.format;
+        renderGrid();
+      });
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', exportLibrary);
+    document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+    document.getElementById('importFile').addEventListener('change', e => {
+      if(e.target.files[0]) importLibrary(e.target.files[0]);
+      e.target.value = '';
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Runtime data — the SQLite database is user data generated at runtime,
+# not something that belongs in version control. Docker Compose persists
+# it in a named volume regardless of this.
+server/data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Packaged archives (built for distribution, not source)
+*.tar.gz
+*.zip
