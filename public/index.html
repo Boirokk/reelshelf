@@ -26,6 +26,7 @@
     --c-appletv: #8b8f97;
     --c-fandango: #c4524d;
     --c-prime: #00a8e0;
+    --c-moviesanywhere: #4b6ef5;
   }
 
   *{ box-sizing: border-box; }
@@ -410,6 +411,7 @@
     <div class="chip" data-format="Apple TV Digital 4K"><span class="dot" style="background:var(--c-appletv)"></span>Apple TV</div>
     <div class="chip" data-format="Fandango at Home"><span class="dot" style="background:var(--c-fandango)"></span>Fandango</div>
     <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
+    <div class="chip" data-format="Movies Anywhere"><span class="dot" style="background:var(--c-moviesanywhere)"></span>Movies Anywhere</div>
   </div>
 
   <div class="grid" id="grid"></div>
@@ -567,6 +569,7 @@
     { id: "Apple TV Digital 4K",   label: "Apple TV (Digital)",  color: "var(--c-appletv)" },
     { id: "Fandango at Home",      label: "Fandango at Home",    color: "var(--c-fandango)" },
     { id: "Prime Video",           label: "Prime Video",         color: "var(--c-prime)" },
+    { id: "Movies Anywhere",       label: "Movies Anywhere",     color: "var(--c-moviesanywhere)" },
   ];
   const formatById = Object.fromEntries(FORMATS.map(f => [f.id, f]));
 
