@@ -156,6 +156,5 @@ snapshot any time. For a full database backup, copy the Docker volume's
 ## License
 
 Personal use only — see [LICENSE](./LICENSE). No commercial use, resale, or
-monetized hosting. Fill in your name in the copyright line at the top of
-the LICENSE file.
+monetized hosting.
 
