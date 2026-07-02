@@ -86,7 +86,7 @@ has one on record.
 
 ## AI features (optional — needs an OpenAI API key)
 
-Reel Shelf can optionally use OpenAI's API to power four features. None of
+Reel Shelf can optionally use OpenAI's API to power five features. None of
 this is required — the app works exactly as before if you skip this
 section. Add a key under **Settings → OpenAI API Key** to turn it on.
 
@@ -94,15 +94,28 @@ section. Add a key under **Settings → OpenAI API Key** to turn it on.
   dumb, under 2 hours") and it picks 1–3 titles from your shelf (or
   wishlist) with a short reason for each, based on your own collection —
   not the internet at large.
+- **🔮 Discover new titles** — a second tab inside the same "What should I
+  watch?" modal. Instead of picking from what you already have, it looks
+  at your taste (favorite genres, vibes, actors) and suggests real movies
+  you don't own yet, each with a one-click "+ Add to Wishlist" button.
+  Every suggestion is verified against TMDB before being shown (to catch
+  hallucinated titles) and cross-checked against your existing library (by
+  TMDB id, and by a loose title/year match for older entries) so it won't
+  suggest something you already have. **Needs both an OpenAI key and a
+  TMDB key** — TMDB is what verifies the suggestions are real.
 - **✨ Smart Add** — paste free text like *"add Heat on blu-ray, put Se7en
   and Zodiac on my wishlist"* and it parses out each title, format, and
   status. Nothing gets created automatically — each parsed title opens the
   normal Add flow (with TMDB search pre-run) so you still confirm before
   saving.
 - **✨ Vibe tags** — a closed set of mood tags (Cozy, Tense, Date Night,
-  Kid-Friendly, etc.) you can assign manually or auto-suggest per title via
-  the "✨ Suggest" button in the Add/Edit modal. Filterable via the Vibes
-  dropdown, same as Genre.
+  Kid-Friendly, etc.). **New titles get auto-tagged automatically** as soon
+  as you save them, as long as an OpenAI key is configured and you didn't
+  already pick tags yourself (manual/Suggest-button choices are always
+  respected over auto-tagging). For titles you already had before turning
+  this on, use **Settings → 🏷️ Auto-tag missing vibes** to backfill
+  everything that doesn't have tags yet, in one go. Filterable via the
+  Vibes dropdown, same as Genre.
 - **✨ Ask AI (semantic search)** — press Enter in the search bar (or hit
   the "✨ Ask AI" button) to search by meaning instead of exact text match,
   e.g. "tense heist movie" finds relevant titles even if those words never
@@ -139,3 +152,10 @@ snapshot any time. For a full database backup, copy the Docker volume's
   (Tailscale, etc.).
 - No HTTPS is configured — terminate TLS at a reverse proxy (Caddy, Nginx,
   Traefik) if you're exposing this beyond localhost.
+
+## License
+
+Personal use only — see [LICENSE](./LICENSE). No commercial use, resale, or
+monetized hosting. Fill in your name in the copyright line at the top of
+the LICENSE file.
+

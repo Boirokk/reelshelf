@@ -2,6 +2,7 @@
   "name": "reelshelf-server",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Self-hosted backend for Reel Shelf",
   "main": "server.js",
   "scripts": {

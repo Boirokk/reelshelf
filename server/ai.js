@@ -164,6 +164,29 @@ function itemEmbeddingText(item) {
   ].filter(Boolean).join(' — ');
 }
 
+// Must stay in sync with the VIBE_TAGS list in public/index.html.
+const VIBE_TAGS = ["Cozy", "Feel-Good", "Funny", "Heartwarming", "Tense", "Dark", "Mind-Bending", "Nostalgic", "Kid-Friendly", "Date Night", "Slow Burn", "Popcorn Flick", "Visually Stunning", "Award-Worthy", "Based on a True Story", "Based on a Book", "Rewatchable"];
+
+/** Suggests 2-5 vibe tags (from the fixed VIBE_TAGS vocabulary) for a title. */
+async function suggestVibes({ title, overview, genres }) {
+  const schema = {
+    type: 'object',
+    properties: {
+      vibes: { type: 'array', items: { type: 'string', enum: VIBE_TAGS } },
+    },
+    required: ['vibes'],
+    additionalProperties: false,
+  };
+  const result = await chatComplete({
+    system: `Pick 2-5 tags from this fixed list that best describe the mood/vibe of the movie: ${VIBE_TAGS.join(', ')}. Only use tags from that exact list.`,
+    user: `Title: ${title}\nGenres: ${(genres || []).join(', ') || 'unknown'}\nOverview: ${overview || 'not available'}`,
+    responseSchema: schema,
+    schemaName: 'vibe_tags',
+    temperature: 0.2,
+  });
+  return (result.vibes || []).filter(v => VIBE_TAGS.includes(v));
+}
+
 module.exports = {
   AiError,
   getOpenAiKey,
@@ -175,6 +198,8 @@ module.exports = {
   embedOne,
   cosineSimilarity,
   itemEmbeddingText,
+  VIBE_TAGS,
+  suggestVibes,
   DEFAULT_CHAT_MODEL,
   DEFAULT_EMBED_MODEL,
 };

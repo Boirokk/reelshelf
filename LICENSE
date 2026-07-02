@@ -1,0 +1,48 @@
+Reel Shelf — Personal Use License
+
+Copyright (c) 2026 Boirokk
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to use, copy, modify, and distribute the Software, subject to the
+following conditions:
+
+1. PERSONAL USE ONLY
+   The Software may be used only for personal, non-commercial purposes by
+   an individual, or shared among members of a single household. Use by or
+   on behalf of any business, organization, nonprofit, or other commercial
+   entity is not permitted under this license.
+
+2. NO COMMERCIAL USE
+   You may not use the Software, or any modified or derivative version of
+   it, to generate revenue in any form. This includes, without limitation:
+   selling it; renting or leasing it; offering it as a paid or ad-supported
+   hosted service (SaaS); bundling it with a commercial product; or using
+   it to provide paid services to others.
+
+3. NO RESALE OR REDISTRIBUTION FOR PROFIT
+   You may not distribute the Software, in whole or in part, modified or
+   unmodified, in exchange for payment or any other compensation. Free,
+   non-commercial redistribution (for example, sharing it with a friend, or
+   a public code repository with no monetization) is permitted, provided
+   this license is included.
+
+4. MODIFICATIONS
+   You may modify the Software for your own personal use. Any distributed
+   copy — modified or not — must include this license.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY ARISING FROM THE SOFTWARE OR THE USE OF IT.
+
+6. THIRD-PARTY SERVICES
+   The Software integrates with third-party APIs (TMDB, OpenAI) at the
+   user's own discretion and using the user's own API keys/accounts. Use of
+   those services is governed by their own respective terms, separate from
+   this license.
+
+For permissions beyond the scope of this license — including any
+commercial use — contact the copyright holder for a separate agreement.

@@ -186,6 +186,12 @@
   .ai-parsed-row .meta .t{ font-weight:700; }
   .ai-parsed-row .meta .d{ color: var(--ink-faint); font-size:12px; }
   .ai-status-line{ font-size:12.5px; color: var(--ink-faint); }
+  .recommend-mode-tabs{ display:flex; gap:8px; }
+  .recommend-mode-tab{
+    flex:1; text-align:center; padding:8px 10px; border-radius:10px; border:1px solid var(--line);
+    background: var(--bg-soft); color: var(--ink-dim); font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .recommend-mode-tab.active{ background: var(--c-moviesanywhere); color:#fff; border-color: var(--c-moviesanywhere); }
 
   /* ---------- Filters ---------- */
   .filter-bar{
@@ -626,6 +632,10 @@
         <button class="btn" id="reindexBtn" type="button">🔄 Rebuild AI search index</button>
         <div class="field-hint" id="reindexStatus">Recomputes AI embeddings for every title — only needed if you change the embedding model above, or want to force a refresh.</div>
       </div>
+      <div class="field" style="margin-top:12px;" id="tagMissingRow">
+        <button class="btn" id="tagMissingBtn" type="button">🏷️ Auto-tag missing vibes</button>
+        <div class="field-hint" id="tagMissingStatus">Suggests vibe tags for every title that doesn't have any yet. New titles you add from now on get auto-tagged automatically.</div>
+      </div>
     </div>
     <div class="modal-foot">
       <div style="flex:1"></div>
@@ -668,8 +678,12 @@
       <button class="modal-close" id="recommendCloseBtn">&times;</button>
     </div>
     <div class="modal-body ai-panel-body">
+      <div class="recommend-mode-tabs" id="recommendModeTabs">
+        <button type="button" class="recommend-mode-tab active" data-mode="collection">From my collection</button>
+        <button type="button" class="recommend-mode-tab" data-mode="discover">🔮 Discover new titles</button>
+      </div>
       <div class="field">
-        <label>What are you in the mood for?</label>
+        <label id="recommendInputLabel">What are you in the mood for?</label>
         <textarea id="recommendInput" placeholder="e.g. something funny but not dumb, under 2 hours"></textarea>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -750,6 +764,7 @@
   let trailerExpanded = false; // whether the trailer embed is showing in the open modal
   let ytPlayer = null; // the currently active YT.Player instance, if any
   let hasOpenAiKey = false; // cached flag from /api/settings
+  let recommendMode = 'collection'; // 'collection' | 'discover' — which tab is active in the Recommend modal
   let aiSearchActive = false; // whether the grid is currently showing semantic-search results
   let aiSearchScores = new Map(); // id -> similarity score, only populated while aiSearchActive
   const failedTrailerKeys = new Set(); // video ids known to fail in this session, so we don't re-popup
@@ -1612,6 +1627,7 @@
     document.getElementById('openaiKeyInput').value = '';
     document.getElementById('openaiKeyInput').placeholder = hasOpenAiKey ? 'Key is set — paste a new one to replace it' : 'Paste your OpenAI API key (sk-…)';
     document.getElementById('reindexStatus').textContent = 'Recomputes AI embeddings for every title — only needed if you change the embedding model above, or want to force a refresh.';
+    document.getElementById('tagMissingStatus').textContent = "Suggests vibe tags for every title that doesn't have any yet. New titles you add from now on get auto-tagged automatically.";
     try{
       const s = await apiRequest('GET', '/api/settings');
       document.getElementById('openaiChatModelInput').value = (s && s.chatModel) || '';
@@ -1669,6 +1685,33 @@
     }catch(e){
       console.error(e);
       status.textContent = e.message || 'Could not rebuild the index — check the server';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function tagMissingVibes(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first');
+      return;
+    }
+    const btn = document.getElementById('tagMissingBtn');
+    const status = document.getElementById('tagMissingStatus');
+    btn.disabled = true;
+    status.textContent = 'Tagging untagged titles… this can take a while for a large library.';
+    try{
+      const res = await apiRequest('POST', '/api/ai/tag-missing');
+      if(res.total === 0){
+        status.textContent = 'Every title already has vibe tags — nothing to do.';
+      }else{
+        status.textContent = `Tagged ${res.tagged} of ${res.total} untagged titles${res.failed ? ` (${res.failed} failed)` : ''}.`;
+        await load();
+        renderAll();
+      }
+      showToast('Vibe tagging complete');
+    }catch(e){
+      console.error(e);
+      status.textContent = e.message || 'Could not tag — check the server';
     }finally{
       btn.disabled = false;
     }
@@ -1796,17 +1839,45 @@
     });
   }
 
-  // ---------- Recommend ("What should I watch?") ----------
+  // ---------- Recommend ("What should I watch?" / "Discover new titles") ----------
   function openRecommend(){
-    document.getElementById('recommendInput').value = '';
-    document.getElementById('recommendStatus').textContent = '';
-    document.getElementById('recommendResults').innerHTML = '';
     document.getElementById('recommendScope').value = activeView === 'wishlist' ? 'wishlist' : 'shelf';
+    setRecommendMode('collection');
     document.getElementById('recommendOverlay').classList.add('open');
     setTimeout(() => document.getElementById('recommendInput').focus(), 50);
   }
   function closeRecommend(){
     document.getElementById('recommendOverlay').classList.remove('open');
+  }
+
+  function setRecommendMode(mode){
+    recommendMode = mode === 'discover' ? 'discover' : 'collection';
+    document.querySelectorAll('.recommend-mode-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.mode === recommendMode);
+    });
+    const scopeSelect = document.getElementById('recommendScope');
+    const label = document.getElementById('recommendInputLabel');
+    const input = document.getElementById('recommendInput');
+    const askBtn = document.getElementById('recommendAskBtn');
+    if(recommendMode === 'discover'){
+      scopeSelect.style.display = 'none';
+      label.textContent = 'Any extra guidance? (optional)';
+      input.placeholder = 'e.g. more sci-fi like what I already have — or leave this blank';
+      askBtn.textContent = 'Suggest titles';
+    }else{
+      scopeSelect.style.display = '';
+      label.textContent = 'What are you in the mood for?';
+      input.placeholder = 'e.g. something funny but not dumb, under 2 hours';
+      askBtn.textContent = 'Ask';
+    }
+    input.value = '';
+    document.getElementById('recommendStatus').textContent = '';
+    document.getElementById('recommendResults').innerHTML = '';
+  }
+
+  function handleRecommendAsk(){
+    if(recommendMode === 'discover') askDiscover();
+    else askRecommend();
   }
 
   async function askRecommend(){
@@ -1835,6 +1906,85 @@
     }finally{
       btn.disabled = false;
     }
+  }
+
+  async function askDiscover(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first (Settings) to use this');
+      return;
+    }
+    if(!hasTmdbKey){
+      showToast('Add a TMDB API key first (Settings) — needed to verify suggestions are real movies');
+      return;
+    }
+    const guidance = document.getElementById('recommendInput').value.trim();
+    const status = document.getElementById('recommendStatus');
+    const btn = document.getElementById('recommendAskBtn');
+    btn.disabled = true;
+    status.textContent = 'Thinking of some titles you don\u2019t have yet…';
+    document.getElementById('recommendResults').innerHTML = '';
+    try{
+      const res = await apiRequest('POST', '/api/ai/discover', { guidance });
+      const suggestions = res.suggestions || [];
+      status.textContent = suggestions.length
+        ? `Found ${suggestions.length} title${suggestions.length===1?'':'s'} you don't have yet:`
+        : "Couldn't find anything to suggest right now — try again, or add a bit more to your shelf first.";
+      renderDiscoverResults(suggestions);
+    }catch(e){
+      console.error(e);
+      status.textContent = e.message || 'Could not get suggestions — check the server';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  function renderDiscoverResults(suggestions){
+    const container = document.getElementById('recommendResults');
+    if(suggestions.length === 0){
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = suggestions.map((s, i) => {
+      const thumb = s.posterPath
+        ? `<img src="${TMDB_IMG_PREVIEW}${s.posterPath}" alt="">`
+        : `<div class="no-thumb"></div>`;
+      return `
+        <div class="ai-result-card" data-idx="${i}">
+          ${thumb}
+          <div style="flex:1">
+            <div class="ai-result-title">${escapeHtml(s.title)}${s.year ? ` (${escapeHtml(s.year)})` : ''}</div>
+            <div class="ai-result-reason">${escapeHtml(s.reason || '')}</div>
+            <div class="ai-result-actions">
+              <button class="btn btn-primary" type="button" data-add="${i}">+ Add to Wishlist</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('button[data-add]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const s = suggestions[Number(btn.dataset.add)];
+        btn.disabled = true;
+        btn.textContent = 'Adding…';
+        try{
+          const created = await apiRequest('POST', '/api/library', {
+            title: s.title,
+            year: s.year,
+            status: 'wishlist',
+            posterPath: s.posterPath,
+            tmdbId: s.tmdbId,
+          });
+          library.push(created);
+          renderAll();
+          btn.textContent = '✓ Added';
+          showToast(`Added "${s.title}" to your wishlist`);
+        }catch(e){
+          console.error(e);
+          btn.disabled = false;
+          btn.textContent = '+ Add to Wishlist';
+          showToast(e.message || 'Could not add — check the server');
+        }
+      });
+    });
   }
 
   function renderRecommendResults(picks){
@@ -1939,6 +2089,7 @@
       if(e.target.id === 'settingsOverlay') closeSettings();
     });
     document.getElementById('reindexBtn').addEventListener('click', reindexAi);
+    document.getElementById('tagMissingBtn').addEventListener('click', tagMissingVibes);
 
     document.getElementById('smartAddBtn').addEventListener('click', openSmartAdd);
     document.getElementById('smartAddCloseBtn').addEventListener('click', closeSmartAdd);
@@ -1951,7 +2102,10 @@
     document.getElementById('recommendBtn').addEventListener('click', openRecommend);
     document.getElementById('recommendCloseBtn').addEventListener('click', closeRecommend);
     document.getElementById('recommendDoneBtn').addEventListener('click', closeRecommend);
-    document.getElementById('recommendAskBtn').addEventListener('click', askRecommend);
+    document.getElementById('recommendAskBtn').addEventListener('click', handleRecommendAsk);
+    document.querySelectorAll('.recommend-mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => setRecommendMode(tab.dataset.mode));
+    });
     document.getElementById('recommendOverlay').addEventListener('click', e => {
       if(e.target.id === 'recommendOverlay') closeRecommend();
     });

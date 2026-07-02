@@ -82,9 +82,22 @@ app.get('/api/library', (req, res) => {
   res.json(rows.map(rowToItem));
 });
 
-app.post('/api/library', (req, res) => {
+app.post('/api/library', async (req, res) => {
   const data = normalizeIncoming(req.body || {});
   if (!data.title) return res.status(400).json({ error: 'Title is required' });
+
+  // Auto-tag vibes on creation, but only if the caller didn't already supply
+  // some (respects an explicit manual/Suggest-button selection) and a key
+  // is configured. Failure here is non-fatal — the title still gets saved.
+  if (data.vibes === '[]' && ai.getOpenAiKey()) {
+    try {
+      const vibes = await ai.suggestVibes({ title: data.title, overview: data.notes, genres: JSON.parse(data.genres) });
+      if (vibes.length) data.vibes = JSON.stringify(vibes);
+    } catch (err) {
+      console.warn('Auto-tag on create failed (non-fatal):', err.message);
+    }
+  }
+
   const id = uid();
   const addedAt = new Date().toISOString();
   db.prepare(`
@@ -180,20 +193,30 @@ app.post('/api/settings/openai', (req, res) => {
 });
 
 // ---------- TMDB proxy (key never leaves the server) ----------
-async function tmdbFetch(res, urlPath, query) {
+async function tmdbApiGet(urlPath, query) {
   const key = getTmdbKey();
-  if (!key) return res.status(400).json({ error: 'No TMDB API key configured' });
+  if (!key) throw new ai.AiError('No TMDB API key configured', 400);
   const url = new URL(`https://api.themoviedb.org/3${urlPath}`);
   url.searchParams.set('api_key', key);
   Object.entries(query || {}).forEach(([k, v]) => { if (v) url.searchParams.set(k, v); });
+  let r;
   try {
-    const r = await fetch(url);
-    const body = await r.json();
-    if (!r.ok) return res.status(r.status).json(body);
+    r = await fetch(url);
+  } catch (err) {
+    throw new ai.AiError('Could not reach TMDB', 502);
+  }
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new ai.AiError((body && body.status_message) || `TMDB error (${r.status})`, r.status);
+  return body;
+}
+
+async function tmdbFetch(res, urlPath, query) {
+  try {
+    const body = await tmdbApiGet(urlPath, query);
     res.json(body);
   } catch (err) {
-    console.error('TMDB proxy error:', err);
-    res.status(502).json({ error: 'Could not reach TMDB' });
+    const status = err instanceof ai.AiError ? err.status : 502;
+    res.status(status).json({ error: err.message || 'Could not reach TMDB' });
   }
 }
 
@@ -209,9 +232,8 @@ app.get('/api/tmdb/movie/:id/videos', (req, res) => {
 
 // ---------- AI features (OpenAI proxy — key never leaves the server) ----------
 
-// Must stay in sync with FORMATS/GENRES-equivalent lists in public/index.html.
+// Must stay in sync with the FORMATS list in public/index.html.
 const ALLOWED_FORMATS = ["DVD", "Blu-ray", "Blu-ray Ultra 4K", "Apple TV Digital 4K", "Fandango at Home", "Prime Video", "Movies Anywhere"];
-const VIBE_TAGS = ["Cozy", "Feel-Good", "Funny", "Heartwarming", "Tense", "Dark", "Mind-Bending", "Nostalgic", "Kid-Friendly", "Date Night", "Slow Burn", "Popcorn Flick", "Visually Stunning", "Award-Worthy", "Based on a True Story", "Based on a Book", "Rewatchable"];
 
 function handleAiError(res, err) {
   console.error('AI error:', err);
@@ -284,24 +306,8 @@ app.post('/api/ai/tag', async (req, res) => {
     const overview = ((req.body && req.body.overview) || '').toString();
     const genres = Array.isArray(req.body && req.body.genres) ? req.body.genres : [];
 
-    const schema = {
-      type: 'object',
-      properties: {
-        vibes: { type: 'array', items: { type: 'string', enum: VIBE_TAGS } },
-      },
-      required: ['vibes'],
-      additionalProperties: false,
-    };
-
-    const result = await ai.chatComplete({
-      system: `Pick 2-5 tags from this fixed list that best describe the mood/vibe of the movie: ${VIBE_TAGS.join(', ')}. Only use tags from that exact list.`,
-      user: `Title: ${title}\nGenres: ${genres.join(', ') || 'unknown'}\nOverview: ${overview || 'not available'}`,
-      responseSchema: schema,
-      schemaName: 'vibe_tags',
-      temperature: 0.2,
-    });
-
-    res.json({ vibes: (result.vibes || []).filter(v => VIBE_TAGS.includes(v)) });
+    const vibes = await ai.suggestVibes({ title, overview, genres });
+    res.json({ vibes });
   } catch (err) {
     handleAiError(res, err);
   }
@@ -402,6 +408,168 @@ app.post('/api/ai/reindex', async (req, res) => {
     const items = db.prepare('SELECT * FROM items').all().map(rowToInternal);
     await ensureEmbeddings(items);
     res.json({ reindexed: items.filter(it => it.embedding).length, total: items.length });
+  } catch (err) {
+    handleAiError(res, err);
+  }
+});
+
+// Backfills vibe tags for every title that doesn't have any yet. Runs with
+// limited concurrency (a handful of in-flight OpenAI requests at a time)
+// rather than one giant batch — chat completions aren't batchable the way
+// embeddings are, so this is a pool of individual calls instead.
+app.post('/api/ai/tag-missing', async (req, res) => {
+  try {
+    if (!ai.getOpenAiKey()) return res.status(400).json({ error: 'No OpenAI API key configured' });
+
+    const items = db.prepare("SELECT * FROM items WHERE vibes = '[]' OR vibes IS NULL").all().map(rowToItem);
+    if (items.length === 0) return res.json({ tagged: 0, failed: 0, total: 0 });
+
+    const update = db.prepare('UPDATE items SET vibes=@vibes WHERE id=@id');
+    let tagged = 0;
+    let failed = 0;
+    let nextIndex = 0;
+    const CONCURRENCY = 4;
+
+    async function worker() {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex++];
+        try {
+          const vibes = await ai.suggestVibes({ title: item.title, overview: item.notes, genres: item.genres });
+          if (vibes.length) {
+            update.run({ id: item.id, vibes: JSON.stringify(vibes) });
+            tagged++;
+          }
+        } catch (err) {
+          failed++;
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
+    res.json({ tagged, failed, total: items.length });
+  } catch (err) {
+    handleAiError(res, err);
+  }
+});
+
+// Loosely-normalized title match, used to keep TMDB-verified suggestions
+// from colliding with existing library entries that have odd punctuation,
+// accents, or curly quotes. Mirrors the client-side duplicate-detection logic.
+function normalizeTitleForMatch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
+    .replace(/[:\-\u2013\u2014,.'"!?()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Suggests brand-new titles (not already in the library) for the wishlist,
+// based on the person's existing taste (genres/vibes/actors they gravitate
+// toward). Unlike /api/ai/recommend, which only picks among titles already
+// in the database, this asks the model to draw on its general knowledge —
+// so every suggestion gets verified against TMDB before being returned,
+// to guard against hallucinated titles and to get real poster/id data.
+app.post('/api/ai/discover', async (req, res) => {
+  try {
+    if (!ai.getOpenAiKey()) return res.status(400).json({ error: 'No OpenAI API key configured' });
+    if (!getTmdbKey()) return res.status(400).json({ error: 'No TMDB API key configured — needed to verify suggestions are real movies' });
+
+    const guidance = ((req.body && req.body.guidance) || '').toString().trim();
+    const items = db.prepare('SELECT * FROM items').all().map(rowToItem);
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'Add a few titles first so there is some taste to learn from' });
+    }
+
+    const rankByFrequency = (arr) => {
+      const counts = {};
+      arr.forEach(x => { counts[x] = (counts[x] || 0) + 1; });
+      return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    };
+    const topGenres = rankByFrequency(items.flatMap(it => it.genres || [])).slice(0, 6);
+    const topVibes = rankByFrequency(items.flatMap(it => it.vibes || [])).slice(0, 6);
+    const topActors = rankByFrequency(items.flatMap(it => it.actors || [])).slice(0, 8);
+    const ownedList = items.map(it => `${it.title}${it.year ? ` (${it.year})` : ''}`).join(', ');
+
+    const schema = {
+      type: 'object',
+      properties: {
+        suggestions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              year: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['title', 'year', 'reason'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['suggestions'],
+      additionalProperties: false,
+    };
+
+    const result = await ai.chatComplete({
+      system: `You recommend real, existing movies for someone to add to their wishlist, based on their taste. Suggest up to 8 real films they don't already own — never invent a title. Do not suggest anything from their "already owned" list (match loosely — different formatting of the same film still counts as already owned). For each suggestion give a specific, short reason tied to their actual taste (favorite genres/vibes/actors), not generic praise.`,
+      user: `Favorite genres: ${topGenres.join(', ') || 'not enough data yet'}\nFavorite vibes: ${topVibes.join(', ') || 'not enough data yet'}\nFrequently appearing actors: ${topActors.join(', ') || 'not enough data yet'}\n${guidance ? `Extra guidance from the person: "${guidance}"\n` : ''}\nAlready owned / on wishlist (do not suggest these):\n${ownedList}`,
+      responseSchema: schema,
+      schemaName: 'wishlist_suggestions',
+    });
+
+    const raw = result.suggestions || [];
+    const ownedTmdbIds = new Set(items.map(it => it.tmdbId).filter(Boolean).map(String));
+    const ownedNormalizedTitles = new Set(items.map(it => `${normalizeTitleForMatch(it.title)}|${it.year || ''}`));
+
+    // Verify each suggestion against TMDB (catches hallucinated titles) and
+    // enrich with real poster/id data, with a small worker pool since chat
+    // suggestions arrive one at a time rather than as a single batch call.
+    const enriched = [];
+    let nextIndex = 0;
+    const CONCURRENCY = 4;
+    async function worker() {
+      while (nextIndex < raw.length) {
+        const s = raw[nextIndex++];
+        if (!s || !s.title) continue;
+        try {
+          const searchBody = await tmdbApiGet('/search/movie', { query: s.title, include_adult: 'false' });
+          const candidates = searchBody.results || [];
+          if (candidates.length === 0) continue;
+          let match = candidates[0];
+          if (s.year) {
+            const withMatchingYear = candidates.find(c => (c.release_date || '').slice(0, 4) === s.year);
+            if (withMatchingYear) match = withMatchingYear;
+          }
+          const matchYear = (match.release_date || '').slice(0, 4);
+          if (ownedTmdbIds.has(String(match.id))) continue;
+          if (ownedNormalizedTitles.has(`${normalizeTitleForMatch(match.title)}|${matchYear}`)) continue;
+          enriched.push({
+            tmdbId: String(match.id),
+            title: match.title,
+            year: matchYear,
+            posterPath: match.poster_path || null,
+            reason: s.reason || '',
+          });
+        } catch (err) {
+          // Skip anything TMDB couldn't verify — better to under-suggest than to hallucinate a title.
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, raw.length) }, worker));
+
+    // De-dupe in case the model suggested near-identical titles that both resolved to the same film.
+    const seen = new Set();
+    const deduped = enriched.filter(s => {
+      if (seen.has(s.tmdbId)) return false;
+      seen.add(s.tmdbId);
+      return true;
+    });
+
+    res.json({ suggestions: deduped.slice(0, 8) });
   } catch (err) {
     handleAiError(res, err);
   }
