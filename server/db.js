@@ -24,6 +24,8 @@ db.exec(`
     notes TEXT DEFAULT '',
     posterPath TEXT DEFAULT '',
     tmdbId TEXT DEFAULT '',
+    vibes TEXT NOT NULL DEFAULT '[]',
+    embedding TEXT DEFAULT '',
     addedAt TEXT NOT NULL
   );
 
@@ -33,10 +35,16 @@ db.exec(`
   );
 `);
 
-// Migration: older databases created before tmdbId existed won't have the column.
+// Migration: older databases created before these columns existed won't have them.
 const existingCols = db.prepare('PRAGMA table_info(items)').all().map(c => c.name);
 if (!existingCols.includes('tmdbId')) {
   db.exec("ALTER TABLE items ADD COLUMN tmdbId TEXT DEFAULT ''");
+}
+if (!existingCols.includes('vibes')) {
+  db.exec("ALTER TABLE items ADD COLUMN vibes TEXT NOT NULL DEFAULT '[]'");
+}
+if (!existingCols.includes('embedding')) {
+  db.exec("ALTER TABLE items ADD COLUMN embedding TEXT DEFAULT ''");
 }
 
 // One-time repair: an earlier version bound tmdbId as a raw number, which

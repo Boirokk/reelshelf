@@ -147,6 +147,46 @@
   .key-banner b{ color: var(--ink); }
   .key-banner .header-spacer{ flex:1; }
 
+  .ai-search-banner{
+    background: var(--panel); border:1px solid var(--c-moviesanywhere);
+    border-radius: var(--radius); padding: 10px 16px; margin: -10px 0 18px;
+    display:flex; align-items:center; gap:10px; font-size: 13px; color: var(--ink-dim);
+  }
+  .ai-search-banner b{ color: var(--ink); }
+  .ai-search-banner .header-spacer{ flex:1; }
+  .ai-search-banner button{ font-size:12px; }
+
+  .vibe-pill{
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;
+    background: color-mix(in srgb, var(--c-moviesanywhere) 16%, transparent);
+    color: var(--c-moviesanywhere);
+  }
+
+  .ai-panel-body{ display:flex; flex-direction:column; gap:14px; }
+  .ai-panel-body textarea{
+    width:100%; min-height:70px; resize:vertical; font-family:inherit; font-size:14px;
+    padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+    background: var(--bg-soft); color: var(--ink);
+  }
+  .ai-result-card{
+    display:flex; gap:12px; padding:12px; border:1px solid var(--line);
+    border-radius:12px; background: var(--bg-soft); align-items:flex-start;
+  }
+  .ai-result-card img{ width:52px; height:76px; object-fit:cover; border-radius:6px; flex-shrink:0; background: var(--panel); }
+  .ai-result-card .no-thumb{ width:52px; height:76px; border-radius:6px; flex-shrink:0; background: var(--panel); }
+  .ai-result-title{ font-weight:700; font-size:14.5px; }
+  .ai-result-reason{ font-size:13px; color: var(--ink-dim); margin-top:3px; }
+  .ai-result-actions{ margin-top:8px; display:flex; gap:8px; }
+  .ai-parsed-row{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:10px; background: var(--bg-soft);
+  }
+  .ai-parsed-row .meta{ flex:1; font-size:13.5px; }
+  .ai-parsed-row .meta .t{ font-weight:700; }
+  .ai-parsed-row .meta .d{ color: var(--ink-faint); font-size:12px; }
+  .ai-status-line{ font-size:12.5px; color: var(--ink-faint); }
+
   /* ---------- Filters ---------- */
   .filter-bar{
     display:flex; gap:10px; align-items:center; flex-wrap:wrap;
@@ -185,6 +225,7 @@
   .genre-grid-wrap.open{ max-height:400px; margin-top:10px; }
   .genre-grid-wrap.hidden{ display:none; }
   .card-genres{ font-size:10.5px; color: var(--ink-dim); }
+  .card-vibes{ display:flex; gap:4px; flex-wrap:wrap; margin:2px 0; }
   .card-actors{ font-size:10.5px; color: var(--ink-faint); }
   .card-actors span{ cursor:pointer; }
   .card-actors span:hover{ color: var(--ink); text-decoration:underline; }
@@ -375,7 +416,9 @@
   <div class="header-inner">
     <div class="logo"><span class="reel"></span><span class="display">Reel Shelf</span></div>
     <div class="header-spacer"></div>
-    <button class="btn btn-ghost" id="settingsBtn" title="TMDB API key">⚙ <span class="label">TMDB Key</span></button>
+    <button class="btn btn-ghost" id="recommendBtn" title="Ask AI what to watch">🎬 <span class="label">What should I watch?</span></button>
+    <button class="btn btn-ghost" id="smartAddBtn" title="Add titles by describing them in plain text">✨ <span class="label">Smart Add</span></button>
+    <button class="btn btn-ghost" id="settingsBtn" title="TMDB &amp; OpenAI settings">⚙ <span class="label">Settings</span></button>
     <button class="btn btn-ghost" id="exportBtn" title="Export library">⬇ <span class="label">Export</span></button>
     <button class="btn btn-ghost" id="importBtn" title="Import library">⬆ <span class="label">Import</span></button>
     <input type="file" id="importFile" accept="application/json">
@@ -401,8 +444,12 @@
 
   <div class="filter-bar">
     <input id="searchInput" type="text" placeholder="Search by title, genre, actor, location, or description…">
+    <button class="btn btn-ghost" id="aiSearchBtn" type="button" title="Semantic search using AI">✨ Ask AI</button>
     <select id="genreFilter" class="genre-select">
       <option value="ALL">All Genres</option>
+    </select>
+    <select id="vibeFilter" class="genre-select">
+      <option value="ALL">All Vibes</option>
     </select>
     <div class="chip active" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All</div>
     <div class="chip" data-format="DVD"><span class="dot" style="background:var(--c-dvd)"></span>DVD</div>
@@ -413,6 +460,7 @@
     <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
     <div class="chip" data-format="Movies Anywhere"><span class="dot" style="background:var(--c-moviesanywhere)"></span>Movies Anywhere</div>
   </div>
+  <div class="ai-search-banner" id="aiSearchBanner" style="display:none;"></div>
 
   <div class="grid" id="grid"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
@@ -492,6 +540,20 @@
         </div>
       </div>
 
+      <div class="field">
+        <div class="genre-label-row">
+          <label style="margin:0">Vibes</label>
+          <div style="display:flex; gap:8px;">
+            <button type="button" id="vibeSuggestBtn" class="genre-toggle-btn">✨ Suggest</button>
+            <button type="button" id="vibeToggleBtn" class="genre-toggle-btn">Edit vibes</button>
+          </div>
+        </div>
+        <div id="vibePills" class="genre-pills"></div>
+        <div id="vibeGridWrap" class="genre-grid-wrap hidden">
+          <div class="format-grid" id="vibeGrid"></div>
+        </div>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label>Shelf / Location</label>
@@ -530,22 +592,99 @@
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsOverlay">
-  <div class="modal" style="max-width:440px;">
+  <div class="modal" style="max-width:480px;">
     <div class="modal-head">
-      <h2>TMDB API Key</h2>
+      <h2>Settings</h2>
       <button class="modal-close" id="settingsCloseBtn">&times;</button>
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>API Key (v3 auth)</label>
+        <label>TMDB API Key (v3 auth)</label>
         <input id="apiKeyInput" type="text" placeholder="Paste your TMDB API key">
         <div class="field-hint">Free at themoviedb.org → Settings → API. Saved on this server and shared by everyone who uses it — never sent anywhere except TMDB's API.</div>
+      </div>
+      <div class="field" style="margin-top:18px; padding-top:18px; border-top:1px solid var(--line);">
+        <label>OpenAI API Key <span style="opacity:.6">(powers the AI features)</span></label>
+        <input id="openaiKeyInput" type="text" placeholder="Paste your OpenAI API key (sk-…)">
+        <div class="field-hint">From platform.openai.com → API keys. Saved on this server, shared by everyone who uses it, and only ever sent to OpenAI's API — never to your browser.</div>
+      </div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer; font-size:12.5px; color:var(--ink-faint);">Advanced: model names</summary>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <div class="field" style="flex:1;">
+            <label>Chat model</label>
+            <input id="openaiChatModelInput" type="text" placeholder="gpt-5.4-mini">
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Embedding model</label>
+            <input id="openaiEmbedModelInput" type="text" placeholder="text-embedding-3-small">
+          </div>
+        </div>
+        <div class="field-hint">Only change these if OpenAI renames/retires a model and things stop working.</div>
+      </details>
+      <div class="field" style="margin-top:16px;" id="reindexRow">
+        <button class="btn" id="reindexBtn" type="button">🔄 Rebuild AI search index</button>
+        <div class="field-hint" id="reindexStatus">Recomputes AI embeddings for every title — only needed if you change the embedding model above, or want to force a refresh.</div>
       </div>
     </div>
     <div class="modal-foot">
       <div style="flex:1"></div>
       <button class="btn" id="settingsCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="settingsSaveBtn">Save Key</button>
+      <button class="btn btn-primary" id="settingsSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Smart Add Modal -->
+<div class="modal-overlay" id="smartAddOverlay">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-head">
+      <h2>✨ Smart Add</h2>
+      <button class="modal-close" id="smartAddCloseBtn">&times;</button>
+    </div>
+    <div class="modal-body ai-panel-body">
+      <div class="field">
+        <label>Describe what to add, in plain text</label>
+        <textarea id="smartAddInput" placeholder="e.g. add Heat on blu-ray, and put Se7en and Zodiac on my wishlist"></textarea>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn btn-primary" id="smartAddParseBtn" type="button">Parse</button>
+        <div class="ai-status-line" id="smartAddStatus"></div>
+      </div>
+      <div id="smartAddResults" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button class="btn" id="smartAddDoneBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recommend Modal -->
+<div class="modal-overlay" id="recommendOverlay">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-head">
+      <h2>🎬 What should I watch?</h2>
+      <button class="modal-close" id="recommendCloseBtn">&times;</button>
+    </div>
+    <div class="modal-body ai-panel-body">
+      <div class="field">
+        <label>What are you in the mood for?</label>
+        <textarea id="recommendInput" placeholder="e.g. something funny but not dumb, under 2 hours"></textarea>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <select id="recommendScope" class="genre-select" style="width:auto;">
+          <option value="shelf">From my shelf</option>
+          <option value="wishlist">From my wishlist</option>
+        </select>
+        <button class="btn btn-primary" id="recommendAskBtn" type="button">Ask</button>
+        <div class="ai-status-line" id="recommendStatus"></div>
+      </div>
+      <div id="recommendResults" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button class="btn" id="recommendDoneBtn">Close</button>
     </div>
   </div>
 </div>
@@ -591,8 +730,13 @@
     878: "Sci-Fi", 10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western"
   };
 
+  // Must stay in sync with ALLOWED_FORMATS/VIBE_TAGS in server/server.js.
+  const VIBE_TAGS = ["Cozy", "Feel-Good", "Funny", "Heartwarming", "Tense", "Dark", "Mind-Bending", "Nostalgic", "Kid-Friendly", "Date Night", "Slow Burn", "Popcorn Flick", "Visually Stunning", "Award-Worthy", "Based on a True Story", "Based on a Book", "Rewatchable"];
+
   let selectedGenres = new Set();
   let activeGenre = "ALL";
+  let selectedVibes = new Set();
+  let activeVibe = "ALL";
 
   let library = [];
   let activeFormat = "ALL";
@@ -605,6 +749,9 @@
   let currentStatus = "shelf"; // status selected inside the open modal
   let trailerExpanded = false; // whether the trailer embed is showing in the open modal
   let ytPlayer = null; // the currently active YT.Player instance, if any
+  let hasOpenAiKey = false; // cached flag from /api/settings
+  let aiSearchActive = false; // whether the grid is currently showing semantic-search results
+  let aiSearchScores = new Map(); // id -> similarity score, only populated while aiSearchActive
   const failedTrailerKeys = new Set(); // video ids known to fail in this session, so we don't re-popup
   let ytApiCallbacks = []; // queued callbacks waiting on the YouTube IFrame API to load
 
@@ -693,10 +840,12 @@
   async function loadSettingsState(){
     try{
       const s = await apiRequest('GET', '/api/settings');
-      hasTmdbKey = !!(s && s.hasKey);
+      hasTmdbKey = !!(s && s.hasTmdbKey);
+      hasOpenAiKey = !!(s && s.hasOpenAiKey);
     }catch(e){
       console.error('Failed to load settings', e);
       hasTmdbKey = false;
+      hasOpenAiKey = false;
     }
   }
 
@@ -739,6 +888,7 @@
     document.getElementById('shelfTabCount').textContent = library.filter(m => !isWishlist(m)).length;
     document.getElementById('wishlistTabCount').textContent = library.filter(isWishlist).length;
     renderGenreFilterOptions();
+    renderVibeFilterOptions();
   }
 
   function renderGenreFilterOptions(){
@@ -755,14 +905,30 @@
     activeGenre = sel.value;
   }
 
+  function renderVibeFilterOptions(){
+    const sel = document.getElementById('vibeFilter');
+    if(!sel) return;
+    const prev = sel.value || activeVibe;
+    const used = new Set();
+    library.filter(m => isWishlist(m) === (activeView === 'wishlist'))
+      .forEach(m => (m.vibes||[]).forEach(v => used.add(v)));
+    const all = [...VIBE_TAGS, ...[...used].filter(v => !VIBE_TAGS.includes(v))].sort();
+    sel.innerHTML = '<option value="ALL">All Vibes</option>' +
+      all.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    sel.value = all.includes(prev) ? prev : 'ALL';
+    activeVibe = sel.value;
+  }
+
   // ---------- Grid ----------
   function matchesFilters(item){
     if(isWishlist(item) !== (activeView === 'wishlist')) return false;
     if(activeFormat !== 'ALL' && !(item.formats||[]).includes(activeFormat)) return false;
     if(activeGenre !== 'ALL' && !(item.genres||[]).includes(activeGenre)) return false;
     if(activeGenre === 'ALL' && (item.genres||[]).some(g => GENRES_HIDDEN_FROM_ALL.includes(g))) return false;
+    if(activeVibe !== 'ALL' && !(item.vibes||[]).includes(activeVibe)) return false;
+    if(aiSearchActive && !aiSearchScores.has(item.id)) return false;
     if(searchTerm){
-      const hay = (item.title + ' ' + (item.genres||[]).join(' ') + ' ' + (item.actors||[]).join(' ') + ' ' + (item.location||'') + ' ' + (item.notes||'') + ' ' + (item.quality||'')).toLowerCase();
+      const hay = (item.title + ' ' + (item.genres||[]).join(' ') + ' ' + (item.vibes||[]).join(' ') + ' ' + (item.actors||[]).join(' ') + ' ' + (item.location||'') + ' ' + (item.notes||'') + ' ' + (item.quality||'')).toLowerCase();
       if(!hay.includes(searchTerm)) return false;
     }
     return true;
@@ -771,7 +937,12 @@
   function renderGrid(){
     const grid = document.getElementById('grid');
     const empty = document.getElementById('emptyState');
-    const items = library.filter(matchesFilters).sort((a,b)=> a.title.localeCompare(b.title));
+    const items = library.filter(matchesFilters).sort((a,b) => {
+      if(aiSearchActive){
+        return (aiSearchScores.get(b.id) || 0) - (aiSearchScores.get(a.id) || 0);
+      }
+      return a.title.localeCompare(b.title);
+    });
     const viewTotal = library.filter(m => isWishlist(m) === (activeView === 'wishlist')).length;
 
     if(items.length === 0){
@@ -801,6 +972,9 @@
       const poster = item.posterPath
         ? `<div class="card-poster" style="background-image:url('${TMDB_IMG_CARD}${item.posterPath}')"></div>`
         : `<div class="card-poster no-art"><div class="poster-fallback-title">${escapeHtml(item.title)}</div></div>`;
+      const vibes = (item.vibes||[]).length
+        ? `<div class="card-vibes">${(item.vibes||[]).slice(0,3).map(v => `<span class="vibe-pill">${escapeHtml(v)}</span>`).join('')}</div>`
+        : '';
 
       return `
         <div class="card" data-id="${item.id}" title="${escapeHtml(item.title)}">
@@ -809,6 +983,7 @@
             <div class="card-title">${escapeHtml(item.title)}</div>
             ${item.year ? `<div class="card-year">${escapeHtml(item.year)}</div>` : ''}
             ${(item.genres||[]).length ? `<div class="card-genres">${escapeHtml((item.genres||[]).join(' • '))}</div>` : ''}
+            ${vibes}
             ${(item.actors||[]).length ? `<div class="card-actors">${(item.actors||[]).slice(0,3).map(a => `<span class="actor-link" data-actor="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join(', ')}</div>` : ''}
             <div class="card-formats">${badges}</div>
           </div>
@@ -1051,6 +1226,96 @@
     });
   }
 
+  // ---------- Vibes (mirrors the Genre picker above) ----------
+  function renderVibeGrid(){
+    const vg = document.getElementById('vibeGrid');
+    vg.innerHTML = VIBE_TAGS.map(v => `
+      <div class="format-option" data-vibe="${v}">
+        ${v}
+        <span class="check">✓</span>
+      </div>`).join('');
+    vg.querySelectorAll('.format-option').forEach(el => {
+      el.addEventListener('click', () => {
+        const v = el.dataset.vibe;
+        if(selectedVibes.has(v)) selectedVibes.delete(v);
+        else selectedVibes.add(v);
+        updateVibeGridSelection();
+        renderVibePills();
+      });
+    });
+
+    document.getElementById('vibeToggleBtn').addEventListener('click', () => {
+      const wrap = document.getElementById('vibeGridWrap');
+      const btn = document.getElementById('vibeToggleBtn');
+      const isOpen = wrap.classList.contains('open');
+      wrap.classList.remove('hidden');
+      wrap.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+      btn.textContent = isOpen ? 'Edit vibes' : 'Done';
+    });
+
+    document.getElementById('vibeSuggestBtn').addEventListener('click', suggestVibes);
+  }
+
+  function renderVibePills(){
+    const container = document.getElementById('vibePills');
+    if(!container) return;
+    if(selectedVibes.size === 0){
+      container.innerHTML = '<span class="genre-pill-empty">None selected — click Edit vibes or ✨ Suggest</span>';
+      return;
+    }
+    container.innerHTML = [...selectedVibes].map(v =>
+      `<span class="genre-pill" title="Click to remove" data-vibe="${escapeHtml(v)}">${escapeHtml(v)} ×</span>`
+    ).join('');
+    container.querySelectorAll('.genre-pill').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedVibes.delete(el.dataset.vibe);
+        updateVibeGridSelection();
+        renderVibePills();
+      });
+    });
+  }
+
+  function updateVibeGridSelection(){
+    document.querySelectorAll('#vibeGrid .format-option').forEach(el => {
+      el.classList.toggle('selected', selectedVibes.has(el.dataset.vibe));
+    });
+  }
+
+  async function suggestVibes(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first (Settings) to use AI suggestions');
+      return;
+    }
+    const title = document.getElementById('f_title').value.trim();
+    if(!title){
+      showToast('Type a title first');
+      return;
+    }
+    const btn = document.getElementById('vibeSuggestBtn');
+    const original = btn.textContent;
+    btn.textContent = 'Thinking…';
+    btn.disabled = true;
+    try{
+      const notes = document.getElementById('f_notes').value.trim();
+      const res = await apiRequest('POST', '/api/ai/tag', {
+        title,
+        overview: notes,
+        genres: Array.from(selectedGenres),
+      });
+      (res.vibes || []).forEach(v => selectedVibes.add(v));
+      updateVibeGridSelection();
+      renderVibePills();
+      showToast(res.vibes && res.vibes.length ? `Suggested: ${res.vibes.join(', ')}` : 'No strong vibe suggestions found');
+    }catch(e){
+      console.error(e);
+      showToast(e.message || 'Could not get AI suggestions');
+    }finally{
+      btn.textContent = original;
+      btn.disabled = false;
+    }
+  }
+
   // ---------- Poster preview ----------
   function setPosterPreview(path){
     currentPosterPath = path || null;
@@ -1256,6 +1521,15 @@
     wrap.classList.remove('open');
     btn.classList.remove('open');
     btn.textContent = 'Edit genres';
+    selectedVibes = new Set(item ? (item.vibes||[]) : []);
+    updateVibeGridSelection();
+    renderVibePills();
+    const vWrap = document.getElementById('vibeGridWrap');
+    const vBtn = document.getElementById('vibeToggleBtn');
+    vWrap.classList.add('hidden');
+    vWrap.classList.remove('open');
+    vBtn.classList.remove('open');
+    vBtn.textContent = 'Edit vibes';
     document.getElementById('modalOverlay').classList.add('open');
     setTimeout(() => document.getElementById('f_title').focus(), 50);
   }
@@ -1283,7 +1557,7 @@
       year: document.getElementById('f_year').value.trim(),
       formats: Array.from(selectedFormats),
       genres: Array.from(selectedGenres),
-      actors: document.getElementById('f_actors').value.split(',').map(s => s.trim()).filter(Boolean),
+      vibes: Array.from(selectedVibes),
       location: document.getElementById('f_location').value.trim(),
       quality: document.getElementById('f_quality').value,
       trailerKey: extractYoutubeId(document.getElementById('f_trailer_url').value),
@@ -1331,10 +1605,18 @@
     }
   }
 
-  // ---------- Settings (API key) ----------
-  function openSettings(){
+  // ---------- Settings (API keys) ----------
+  async function openSettings(){
     document.getElementById('apiKeyInput').value = '';
     document.getElementById('apiKeyInput').placeholder = hasTmdbKey ? 'Key is set — paste a new one to replace it' : 'Paste your TMDB API key';
+    document.getElementById('openaiKeyInput').value = '';
+    document.getElementById('openaiKeyInput').placeholder = hasOpenAiKey ? 'Key is set — paste a new one to replace it' : 'Paste your OpenAI API key (sk-…)';
+    document.getElementById('reindexStatus').textContent = 'Recomputes AI embeddings for every title — only needed if you change the embedding model above, or want to force a refresh.';
+    try{
+      const s = await apiRequest('GET', '/api/settings');
+      document.getElementById('openaiChatModelInput').value = (s && s.chatModel) || '';
+      document.getElementById('openaiEmbedModelInput').value = (s && s.embedModel) || '';
+    }catch(e){ /* non-fatal — leave the model fields blank */ }
     document.getElementById('settingsOverlay').classList.add('open');
     setTimeout(() => document.getElementById('apiKeyInput').focus(), 50);
   }
@@ -1342,17 +1624,252 @@
     document.getElementById('settingsOverlay').classList.remove('open');
   }
   async function saveSettings(){
-    const val = document.getElementById('apiKeyInput').value;
+    const tmdbVal = document.getElementById('apiKeyInput').value.trim();
+    const openaiVal = document.getElementById('openaiKeyInput').value.trim();
+    const chatModel = document.getElementById('openaiChatModelInput').value.trim();
+    const embedModel = document.getElementById('openaiEmbedModelInput').value.trim();
     try{
-      const s = await apiRequest('POST', '/api/settings', { tmdbKey: val });
-      hasTmdbKey = !!(s && s.hasKey);
+      const tasks = [];
+      // Only touch a key if the person actually typed something into that
+      // field — a blank field means "leave it as it is", not "clear it".
+      if(tmdbVal){
+        tasks.push(apiRequest('POST', '/api/settings/tmdb', { tmdbKey: tmdbVal })
+          .then(r => { hasTmdbKey = !!(r && r.hasTmdbKey); }));
+      }
+      if(openaiVal || chatModel || embedModel){
+        tasks.push(apiRequest('POST', '/api/settings/openai', { openaiKey: openaiVal, chatModel, embedModel })
+          .then(r => { hasOpenAiKey = !!(r && r.hasOpenAiKey); }));
+      }
+      if(tasks.length === 0){
+        closeSettings();
+        return;
+      }
+      await Promise.all(tasks);
       closeSettings();
       renderStats();
-      showToast('TMDB key saved for everyone using this server');
+      showToast('Settings saved for everyone using this server');
     }catch(e){
       console.error(e);
-      showToast(e.message || 'Could not save key — check the server');
+      showToast(e.message || 'Could not save settings — check the server');
     }
+  }
+  async function reindexAi(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first');
+      return;
+    }
+    const btn = document.getElementById('reindexBtn');
+    const status = document.getElementById('reindexStatus');
+    btn.disabled = true;
+    status.textContent = 'Rebuilding index… this can take a moment for a large library.';
+    try{
+      const res = await apiRequest('POST', '/api/ai/reindex');
+      status.textContent = `Indexed ${res.reindexed} of ${res.total} titles.`;
+      showToast('AI search index rebuilt');
+    }catch(e){
+      console.error(e);
+      status.textContent = e.message || 'Could not rebuild the index — check the server';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  // ---------- Semantic (AI) search ----------
+  async function runAiSearch(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first (Settings) to use AI search');
+      return;
+    }
+    const query = document.getElementById('searchInput').value.trim();
+    if(!query){
+      showToast('Type something to search for first');
+      return;
+    }
+    const btn = document.getElementById('aiSearchBtn');
+    const original = btn.textContent;
+    btn.textContent = 'Searching…';
+    btn.disabled = true;
+    try{
+      const res = await apiRequest('POST', '/api/ai/search', { query });
+      aiSearchScores = new Map((res.results || []).map(r => [r.id, r.score]));
+      aiSearchActive = true;
+      searchTerm = ''; // AI search replaces the plain-text filter rather than stacking with it
+      document.getElementById('searchInput').value = '';
+      renderAiSearchBanner(query);
+      renderGrid();
+    }catch(e){
+      console.error(e);
+      showToast(e.message || 'AI search failed — check the server');
+    }finally{
+      btn.textContent = original;
+      btn.disabled = false;
+    }
+  }
+
+  function clearAiSearch(){
+    aiSearchActive = false;
+    aiSearchScores = new Map();
+    document.getElementById('aiSearchBanner').style.display = 'none';
+    renderGrid();
+  }
+
+  function renderAiSearchBanner(query){
+    const banner = document.getElementById('aiSearchBanner');
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>✨</span><span>AI search results for "<b>${escapeHtml(query)}</b>" (${aiSearchScores.size} match${aiSearchScores.size===1?'':'es'})</span><div class="header-spacer"></div><button class="btn" id="aiSearchClearBtn" type="button">Clear</button>`;
+    document.getElementById('aiSearchClearBtn').addEventListener('click', clearAiSearch);
+  }
+
+  // ---------- Smart Add ----------
+  function openSmartAdd(){
+    document.getElementById('smartAddInput').value = '';
+    document.getElementById('smartAddStatus').textContent = '';
+    document.getElementById('smartAddResults').innerHTML = '';
+    document.getElementById('smartAddOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('smartAddInput').focus(), 50);
+  }
+  function closeSmartAdd(){
+    document.getElementById('smartAddOverlay').classList.remove('open');
+  }
+
+  async function parseSmartAdd(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first (Settings) to use Smart Add');
+      return;
+    }
+    const text = document.getElementById('smartAddInput').value.trim();
+    if(!text){
+      showToast('Describe what to add first');
+      return;
+    }
+    const status = document.getElementById('smartAddStatus');
+    const btn = document.getElementById('smartAddParseBtn');
+    btn.disabled = true;
+    status.textContent = 'Parsing…';
+    document.getElementById('smartAddResults').innerHTML = '';
+    try{
+      const res = await apiRequest('POST', '/api/ai/parse-add', { text });
+      const items = res.items || [];
+      if(items.length === 0){
+        status.textContent = 'Could not find any movie titles in that text.';
+        return;
+      }
+      status.textContent = `Found ${items.length} title${items.length===1?'':'s'} — review and search each one:`;
+      renderSmartAddResults(items);
+    }catch(e){
+      console.error(e);
+      status.textContent = e.message || 'Could not parse — check the server';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  function renderSmartAddResults(items){
+    const container = document.getElementById('smartAddResults');
+    container.innerHTML = items.map((it, i) => {
+      const bits = [];
+      if(it.year) bits.push(it.year);
+      if(it.format) bits.push(it.format);
+      bits.push(it.status === 'wishlist' ? 'Wishlist' : 'Shelf');
+      return `
+        <div class="ai-parsed-row">
+          <div class="meta">
+            <div class="t">${escapeHtml(it.title || 'Untitled')}</div>
+            <div class="d">${escapeHtml(bits.join(' • '))}</div>
+          </div>
+          <button class="btn btn-primary" type="button" data-idx="${i}">Search &amp; Review</button>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('button[data-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const it = items[Number(btn.dataset.idx)];
+        closeSmartAdd();
+        openModal(null, it.status === 'wishlist' ? 'wishlist' : 'shelf');
+        document.getElementById('f_title').value = it.title || '';
+        if(it.year) document.getElementById('f_year').value = it.year;
+        if(it.format && FORMATS.some(f => f.id === it.format)){
+          selectedFormats = new Set([it.format]);
+          updateFormatGridSelection();
+        }
+        searchTmdb();
+      });
+    });
+  }
+
+  // ---------- Recommend ("What should I watch?") ----------
+  function openRecommend(){
+    document.getElementById('recommendInput').value = '';
+    document.getElementById('recommendStatus').textContent = '';
+    document.getElementById('recommendResults').innerHTML = '';
+    document.getElementById('recommendScope').value = activeView === 'wishlist' ? 'wishlist' : 'shelf';
+    document.getElementById('recommendOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('recommendInput').focus(), 50);
+  }
+  function closeRecommend(){
+    document.getElementById('recommendOverlay').classList.remove('open');
+  }
+
+  async function askRecommend(){
+    if(!hasOpenAiKey){
+      showToast('Add an OpenAI API key first (Settings) to use this');
+      return;
+    }
+    const mood = document.getElementById('recommendInput').value.trim();
+    if(!mood){
+      showToast("Tell it what you're in the mood for first");
+      return;
+    }
+    const scope = document.getElementById('recommendScope').value;
+    const status = document.getElementById('recommendStatus');
+    const btn = document.getElementById('recommendAskBtn');
+    btn.disabled = true;
+    status.textContent = 'Thinking…';
+    document.getElementById('recommendResults').innerHTML = '';
+    try{
+      const res = await apiRequest('POST', '/api/ai/recommend', { mood, status: scope });
+      status.textContent = res.message || '';
+      renderRecommendResults(res.picks || []);
+    }catch(e){
+      console.error(e);
+      status.textContent = e.message || 'Could not get a recommendation — check the server';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  function renderRecommendResults(picks){
+    const container = document.getElementById('recommendResults');
+    if(picks.length === 0){
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = picks.map(p => {
+      const item = library.find(m => m.id === p.id);
+      if(!item) return '';
+      const thumb = item.posterPath
+        ? `<img src="${TMDB_IMG_PREVIEW}${item.posterPath}" alt="">`
+        : `<div class="no-thumb"></div>`;
+      return `
+        <div class="ai-result-card" data-id="${item.id}">
+          ${thumb}
+          <div style="flex:1">
+            <div class="ai-result-title">${escapeHtml(item.title)}${item.year ? ` (${escapeHtml(item.year)})` : ''}</div>
+            <div class="ai-result-reason">${escapeHtml(p.reason || '')}</div>
+            <div class="ai-result-actions">
+              <button class="btn" type="button" data-open="${escapeHtml(item.id)}">Open</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('button[data-open]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = library.find(m => m.id === btn.dataset.open);
+        if(item){
+          closeRecommend();
+          openModal(item);
+        }
+      });
+    });
   }
 
   // ---------- Export / Import ----------
@@ -1396,6 +1913,7 @@
     await Promise.all([load(), loadSettingsState()]);
     renderFormatGrid();
     renderGenreGrid();
+    renderVibeGrid();
     renderStatusToggle();
     renderAll();
 
@@ -1420,11 +1938,30 @@
     document.getElementById('settingsOverlay').addEventListener('click', e => {
       if(e.target.id === 'settingsOverlay') closeSettings();
     });
+    document.getElementById('reindexBtn').addEventListener('click', reindexAi);
+
+    document.getElementById('smartAddBtn').addEventListener('click', openSmartAdd);
+    document.getElementById('smartAddCloseBtn').addEventListener('click', closeSmartAdd);
+    document.getElementById('smartAddDoneBtn').addEventListener('click', closeSmartAdd);
+    document.getElementById('smartAddParseBtn').addEventListener('click', parseSmartAdd);
+    document.getElementById('smartAddOverlay').addEventListener('click', e => {
+      if(e.target.id === 'smartAddOverlay') closeSmartAdd();
+    });
+
+    document.getElementById('recommendBtn').addEventListener('click', openRecommend);
+    document.getElementById('recommendCloseBtn').addEventListener('click', closeRecommend);
+    document.getElementById('recommendDoneBtn').addEventListener('click', closeRecommend);
+    document.getElementById('recommendAskBtn').addEventListener('click', askRecommend);
+    document.getElementById('recommendOverlay').addEventListener('click', e => {
+      if(e.target.id === 'recommendOverlay') closeRecommend();
+    });
 
     document.addEventListener('keydown', e => {
       if(e.key === 'Escape'){
         if(document.getElementById('modalOverlay').classList.contains('open')) closeModal();
         if(document.getElementById('settingsOverlay').classList.contains('open')) closeSettings();
+        if(document.getElementById('smartAddOverlay').classList.contains('open')) closeSmartAdd();
+        if(document.getElementById('recommendOverlay').classList.contains('open')) closeRecommend();
       }
     });
 
@@ -1456,12 +1993,21 @@
     });
 
     document.getElementById('searchInput').addEventListener('input', e => {
+      if(aiSearchActive) clearAiSearch();
       searchTerm = e.target.value.trim().toLowerCase();
       renderGrid();
+    });
+    document.getElementById('aiSearchBtn').addEventListener('click', runAiSearch);
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); runAiSearch(); }
     });
 
     document.getElementById('genreFilter').addEventListener('change', e => {
       activeGenre = e.target.value;
+      renderGrid();
+    });
+    document.getElementById('vibeFilter').addEventListener('change', e => {
+      activeVibe = e.target.value;
       renderGrid();
     });
 
