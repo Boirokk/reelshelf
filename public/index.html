@@ -400,6 +400,7 @@
   }
 
   /* ---------- View Modal ---------- */
+  /* Mobile-first: a narrow, portrait-shaped sheet — poster+facts on top, everything else stacked below. */
   .view-hero{ display:flex; gap:18px; }
   .view-poster{
     width:140px; min-width:140px; aspect-ratio:2/3; border-radius:10px;
@@ -430,6 +431,15 @@
   .view-notes{ font-size:13.5px; color: var(--ink-dim); line-height:1.55; white-space:pre-wrap; }
   .view-body .genre-pill{ cursor:default; }
   .view-body .genre-pill:hover{ border-color:var(--panel-edge); color:var(--ink-dim); }
+  .view-details{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+
+  /* Desktop/wide viewports: widen into a landscape card — poster sidebar + details side by side. */
+  @media (min-width: 860px){
+    .view-modal{ max-width: 880px; }
+    .view-body{ flex-direction: row; align-items:flex-start; gap:28px; }
+    .view-hero{ flex-direction: column; width: 220px; flex-shrink:0; gap:14px; }
+    .view-poster{ width:100%; }
+  }
 
   .toast{
     position: fixed; bottom: 24px; left:50%; transform: translateX(-50%) translateY(20px);
@@ -646,29 +656,31 @@
         </div>
       </div>
 
-      <div class="view-section" id="viewGenreSection" style="display:none;">
-        <span class="view-label">Genre</span>
-        <div id="viewGenres" class="genre-pills"></div>
-      </div>
+      <div class="view-details">
+        <div class="view-section" id="viewGenreSection" style="display:none;">
+          <span class="view-label">Genre</span>
+          <div id="viewGenres" class="genre-pills"></div>
+        </div>
 
-      <div class="view-section" id="viewVibeSection" style="display:none;">
-        <span class="view-label">Vibes</span>
-        <div id="viewVibes" class="genre-pills"></div>
-      </div>
+        <div class="view-section" id="viewVibeSection" style="display:none;">
+          <span class="view-label">Vibes</span>
+          <div id="viewVibes" class="genre-pills"></div>
+        </div>
 
-      <div class="view-section" id="viewActorsSection" style="display:none;">
-        <span class="view-label">Cast</span>
-        <div id="viewActors" class="view-actors"></div>
-      </div>
+        <div class="view-section" id="viewActorsSection" style="display:none;">
+          <span class="view-label">Cast</span>
+          <div id="viewActors" class="view-actors"></div>
+        </div>
 
-      <div class="view-section" id="viewTrailerSection" style="display:none;">
-        <button type="button" class="genre-toggle-btn" id="viewTrailerToggleBtn">▶ Play trailer</button>
-        <div class="trailer-embed-wrap" id="viewTrailerEmbedWrap" style="display:none;"></div>
-      </div>
+        <div class="view-section" id="viewTrailerSection" style="display:none;">
+          <button type="button" class="genre-toggle-btn" id="viewTrailerToggleBtn">▶ Play trailer</button>
+          <div class="trailer-embed-wrap" id="viewTrailerEmbedWrap" style="display:none;"></div>
+        </div>
 
-      <div class="view-section" id="viewNotesSection" style="display:none;">
-        <span class="view-label">Notes</span>
-        <div class="view-notes" id="viewNotes"></div>
+        <div class="view-section" id="viewNotesSection" style="display:none;">
+          <span class="view-label">Notes</span>
+          <div class="view-notes" id="viewNotes"></div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
