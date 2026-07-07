@@ -441,6 +441,19 @@
     .view-poster{ width:100%; }
   }
 
+  /* ---------- Add/Edit Modal ---------- */
+  /* Mobile-first: everything stacked in one narrow, portrait-shaped column. */
+  .edit-hero{ display:flex; flex-direction:column; gap:16px; }
+  .edit-details{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+
+  /* Desktop/wide viewports: widen into a landscape form — art/search sidebar + fields side by side. */
+  @media (min-width: 860px){
+    .edit-modal{ max-width: 960px; }
+    .edit-body{ flex-direction: row; align-items:flex-start; gap:28px; }
+    .edit-hero{ width: 340px; flex-shrink:0; }
+    .edit-details{ flex:1; }
+  }
+
   .toast{
     position: fixed; bottom: 24px; left:50%; transform: translateX(-50%) translateY(20px);
     background: var(--panel); border:1px solid var(--accent); color: var(--ink);
@@ -523,110 +536,114 @@
 
 <!-- Add/Edit Modal -->
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
+  <div class="modal edit-modal">
     <div class="modal-head">
       <h2 id="modalTitle">Add Title</h2>
       <button class="modal-close" id="modalCloseBtn">&times;</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body edit-body">
 
-      <div class="field">
-        <label>Find on TMDB</label>
-        <div class="tmdb-search-row">
-          <input id="f_title" type="text" placeholder="e.g. Heat">
-          <button class="btn btn-primary" id="tmdbSearchBtn">Search</button>
+      <div class="edit-hero">
+        <div class="field">
+          <label>Find on TMDB</label>
+          <div class="tmdb-search-row">
+            <input id="f_title" type="text" placeholder="e.g. Heat">
+            <button class="btn btn-primary" id="tmdbSearchBtn">Search</button>
+          </div>
+          <div class="field-hint" id="tmdbStatus"></div>
         </div>
-        <div class="field-hint" id="tmdbStatus"></div>
-      </div>
 
-      <div class="tmdb-results" id="tmdbResults" style="display:none;"></div>
+        <div class="tmdb-results" id="tmdbResults" style="display:none;"></div>
 
-      <div class="poster-preview-row">
-        <div class="poster-preview" id="posterPreview">No cover</div>
-        <div style="flex:1; display:flex; flex-direction:column; gap:12px;">
-          <div class="field-row">
-            <div class="field">
-              <label>Year</label>
-              <input id="f_year" type="text" placeholder="1995">
+        <div class="poster-preview-row">
+          <div class="poster-preview" id="posterPreview">No cover</div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:12px;">
+            <div class="field-row">
+              <div class="field">
+                <label>Year</label>
+                <input id="f_year" type="text" placeholder="1995">
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="field">
-        <div class="genre-label-row">
-          <label style="margin:0">Trailer</label>
-          <button type="button" id="trailerToggleBtn" class="genre-toggle-btn" style="display:none;">▶ Show trailer</button>
-        </div>
-        <div class="field-hint" id="trailerStatus"></div>
-        <div class="trailer-embed-wrap" id="trailerEmbedWrap" style="display:none;"></div>
-        <input id="f_trailer_url" type="text" placeholder="Paste a YouTube link to set or override the trailer" style="margin-top:8px;">
-      </div>
-
-      <div class="field">
-        <label>Status</label>
-        <div class="status-toggle" id="statusToggle">
-          <button type="button" class="status-option" data-status="shelf">📀 My Shelf</button>
-          <button type="button" class="status-option" data-status="wishlist">⭐ Wishlist</button>
-        </div>
-        <div class="field-hint" id="statusHint"></div>
-      </div>
-
-      <div class="field">
-        <label id="formatGridLabel">Owned on (select all that apply) *</label>
-        <div class="format-grid" id="formatGrid"></div>
-      </div>
-
-      <div class="field">
-        <div class="genre-label-row">
-          <label style="margin:0">Genre</label>
-          <button type="button" id="genreToggleBtn" class="genre-toggle-btn">Edit genres</button>
-        </div>
-        <div id="genrePills" class="genre-pills"></div>
-        <div id="genreGridWrap" class="genre-grid-wrap hidden">
-          <div class="format-grid" id="genreGrid"></div>
+        <div class="field">
+          <div class="genre-label-row">
+            <label style="margin:0">Trailer</label>
+            <button type="button" id="trailerToggleBtn" class="genre-toggle-btn" style="display:none;">▶ Show trailer</button>
+          </div>
+          <div class="field-hint" id="trailerStatus"></div>
+          <div class="trailer-embed-wrap" id="trailerEmbedWrap" style="display:none;"></div>
+          <input id="f_trailer_url" type="text" placeholder="Paste a YouTube link to set or override the trailer" style="margin-top:8px;">
         </div>
       </div>
 
-      <div class="field">
-        <div class="genre-label-row">
-          <label style="margin:0">Vibes</label>
-          <div style="display:flex; gap:8px;">
-            <button type="button" id="vibeSuggestBtn" class="genre-toggle-btn">✨ Suggest</button>
-            <button type="button" id="vibeToggleBtn" class="genre-toggle-btn">Edit vibes</button>
+      <div class="edit-details">
+        <div class="field">
+          <label>Status</label>
+          <div class="status-toggle" id="statusToggle">
+            <button type="button" class="status-option" data-status="shelf">📀 My Shelf</button>
+            <button type="button" class="status-option" data-status="wishlist">⭐ Wishlist</button>
+          </div>
+          <div class="field-hint" id="statusHint"></div>
+        </div>
+
+        <div class="field">
+          <label id="formatGridLabel">Owned on (select all that apply) *</label>
+          <div class="format-grid" id="formatGrid"></div>
+        </div>
+
+        <div class="field">
+          <div class="genre-label-row">
+            <label style="margin:0">Genre</label>
+            <button type="button" id="genreToggleBtn" class="genre-toggle-btn">Edit genres</button>
+          </div>
+          <div id="genrePills" class="genre-pills"></div>
+          <div id="genreGridWrap" class="genre-grid-wrap hidden">
+            <div class="format-grid" id="genreGrid"></div>
           </div>
         </div>
-        <div id="vibePills" class="genre-pills"></div>
-        <div id="vibeGridWrap" class="genre-grid-wrap hidden">
-          <div class="format-grid" id="vibeGrid"></div>
-        </div>
-      </div>
 
-      <div class="field-row">
         <div class="field">
-          <label>Shelf / Location</label>
-          <input id="f_location" type="text" placeholder="e.g. Living room, Shelf B">
+          <div class="genre-label-row">
+            <label style="margin:0">Vibes</label>
+            <div style="display:flex; gap:8px;">
+              <button type="button" id="vibeSuggestBtn" class="genre-toggle-btn">✨ Suggest</button>
+              <button type="button" id="vibeToggleBtn" class="genre-toggle-btn">Edit vibes</button>
+            </div>
+          </div>
+          <div id="vibePills" class="genre-pills"></div>
+          <div id="vibeGridWrap" class="genre-grid-wrap hidden">
+            <div class="format-grid" id="vibeGrid"></div>
+          </div>
         </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Shelf / Location</label>
+            <input id="f_location" type="text" placeholder="e.g. Living room, Shelf B">
+          </div>
+          <div class="field">
+            <label>Quality <span style="opacity:.6">(digital only)</span></label>
+            <select id="f_quality" class="genre-select" style="width:100%;">
+              <option value="">No quality set</option>
+              <option value="HD">HD</option>
+              <option value="4K">4K</option>
+              <option value="4K UHD + HDR">4K UHD + HDR</option>
+            </select>
+          </div>
+        </div>
+
         <div class="field">
-          <label>Quality <span style="opacity:.6">(digital only)</span></label>
-          <select id="f_quality" class="genre-select" style="width:100%;">
-            <option value="">No quality set</option>
-            <option value="HD">HD</option>
-            <option value="4K">4K</option>
-            <option value="4K UHD + HDR">4K UHD + HDR</option>
-          </select>
+          <label>Actors <span style="opacity:.6">(comma-separated)</span></label>
+          <input id="f_actors" type="text" placeholder="e.g. Al Pacino, Robert De Niro, Val Kilmer">
+          <div class="field-hint">Auto-filled with top cast when you pull a title in from TMDB. Searchable below.</div>
         </div>
-      </div>
 
-      <div class="field">
-        <label>Actors <span style="opacity:.6">(comma-separated)</span></label>
-        <input id="f_actors" type="text" placeholder="e.g. Al Pacino, Robert De Niro, Val Kilmer">
-        <div class="field-hint">Auto-filled with top cast when you pull a title in from TMDB. Searchable below.</div>
-      </div>
-
-      <div class="field">
-        <label>Description</label>
-        <textarea id="f_notes" class="description-box" placeholder="Steelbook, gift from..., needs rewatch, etc. (TMDB overview gets added here too)"></textarea>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="f_notes" class="description-box" placeholder="Steelbook, gift from..., needs rewatch, etc. (TMDB overview gets added here too)"></textarea>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
