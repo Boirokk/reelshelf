@@ -399,6 +399,38 @@
     padding: 18px 24px; border-top: 1px solid var(--panel-edge);
   }
 
+  /* ---------- View Modal ---------- */
+  .view-hero{ display:flex; gap:18px; }
+  .view-poster{
+    width:140px; min-width:140px; aspect-ratio:2/3; border-radius:10px;
+    background: var(--panel) center/cover no-repeat; border:1px solid var(--panel-edge);
+    flex-shrink:0;
+  }
+  .view-poster.no-art{
+    display:flex; align-items:center; justify-content:center; padding:12px;
+    text-align:center; font-family:'Oswald',sans-serif; font-size:14px; color:var(--ink-dim);
+    background: linear-gradient(160deg, #232227, #121113);
+  }
+  .view-hero-info{ display:flex; flex-direction:column; gap:10px; padding-top:2px; min-width:0; }
+  .view-status-pill{
+    align-self:flex-start; font-size:12px; font-weight:600; padding:5px 12px;
+    border-radius:999px; border:1.5px solid var(--accent); color:var(--ink);
+    background: var(--bg-soft);
+  }
+  .view-status-pill.wishlist{ border-color:var(--teal); color:var(--teal); }
+  .view-year{ color: var(--ink-dim); font-size:13.5px; }
+  .view-formats{ display:flex; flex-wrap:wrap; gap:6px; }
+  .view-formats .badge{ font-size:10.5px; padding:4px 9px; }
+  .view-meta{ font-size:12.5px; color: var(--ink-faint); }
+  .view-label{
+    display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.06em;
+    color: var(--ink-faint); margin-bottom:8px; font-weight:600;
+  }
+  .view-actors{ font-size:13.5px; color: var(--ink-dim); line-height:1.5; }
+  .view-notes{ font-size:13.5px; color: var(--ink-dim); line-height:1.55; white-space:pre-wrap; }
+  .view-body .genre-pill{ cursor:default; }
+  .view-body .genre-pill:hover{ border-color:var(--panel-edge); color:var(--ink-dim); }
+
   .toast{
     position: fixed; bottom: 24px; left:50%; transform: translateX(-50%) translateY(20px);
     background: var(--panel); border:1px solid var(--accent); color: var(--ink);
@@ -596,6 +628,58 @@
   </div>
 </div>
 
+<!-- View Modal -->
+<div class="modal-overlay" id="viewModalOverlay">
+  <div class="modal view-modal">
+    <div class="modal-head">
+      <h2 id="viewModalTitle">Title</h2>
+      <button class="modal-close" id="viewModalCloseBtn">&times;</button>
+    </div>
+    <div class="modal-body view-body">
+      <div class="view-hero">
+        <div class="view-poster no-art" id="viewPoster"></div>
+        <div class="view-hero-info">
+          <span class="view-status-pill" id="viewStatusPill"></span>
+          <div class="view-year" id="viewYear" style="display:none;"></div>
+          <div class="view-formats" id="viewFormats"></div>
+          <div class="view-meta" id="viewMeta" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="view-section" id="viewGenreSection" style="display:none;">
+        <span class="view-label">Genre</span>
+        <div id="viewGenres" class="genre-pills"></div>
+      </div>
+
+      <div class="view-section" id="viewVibeSection" style="display:none;">
+        <span class="view-label">Vibes</span>
+        <div id="viewVibes" class="genre-pills"></div>
+      </div>
+
+      <div class="view-section" id="viewActorsSection" style="display:none;">
+        <span class="view-label">Cast</span>
+        <div id="viewActors" class="view-actors"></div>
+      </div>
+
+      <div class="view-section" id="viewTrailerSection" style="display:none;">
+        <button type="button" class="genre-toggle-btn" id="viewTrailerToggleBtn">▶ Play trailer</button>
+        <div class="trailer-embed-wrap" id="viewTrailerEmbedWrap" style="display:none;"></div>
+      </div>
+
+      <div class="view-section" id="viewNotesSection" style="display:none;">
+        <span class="view-label">Notes</span>
+        <div class="view-notes" id="viewNotes"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="viewDeleteBtn" style="border-color:var(--red); color:var(--red);">Remove</button>
+      <div style="flex:1"></div>
+      <button class="btn" id="viewCloseBtn">Close</button>
+      <button class="btn btn-primary" id="viewEditBtn">✎ Edit</button>
+    </div>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsOverlay">
   <div class="modal" style="max-width:480px;">
@@ -756,6 +840,7 @@
   let activeFormat = "ALL";
   let searchTerm = "";
   let editingId = null;
+  let viewingItem = null; // item currently shown in the read-only view modal
   let selectedFormats = new Set();
   let currentPosterPath = null; // TMDB relative path, e.g. /abc.jpg
   let currentTmdbId = null; // TMDB movie id of whatever's currently filled into the modal, if known
@@ -1605,19 +1690,125 @@
     }
   }
 
-  async function deleteCurrent(){
-    if(!editingId) return;
-    if(!confirm('Remove this title from your shelf?')) return;
+  async function deleteItemById(id){
+    if(!confirm('Remove this title from your shelf?')) return false;
     try{
-      await apiRequest('DELETE', `/api/library/${encodeURIComponent(editingId)}`);
-      library = library.filter(m => m.id !== editingId);
+      await apiRequest('DELETE', `/api/library/${encodeURIComponent(id)}`);
+      library = library.filter(m => m.id !== id);
       renderAll();
-      closeModal();
       showToast('Removed from shelf');
+      return true;
     }catch(e){
       console.error(e);
       showToast(e.message || 'Could not delete — check the server');
+      return false;
     }
+  }
+  async function deleteCurrent(){
+    if(!editingId) return;
+    if(await deleteItemById(editingId)) closeModal();
+  }
+
+  // ---------- View Modal (read-only) ----------
+  function setViewPoster(posterPath, title){
+    const el = document.getElementById('viewPoster');
+    if(posterPath){
+      el.classList.remove('no-art');
+      el.style.backgroundImage = `url('${TMDB_IMG_CARD}${posterPath}')`;
+      el.textContent = '';
+    }else{
+      el.classList.add('no-art');
+      el.style.backgroundImage = '';
+      el.textContent = title;
+    }
+  }
+
+  function fillViewPillSection(sectionId, listId, values, pillClass){
+    const section = document.getElementById(sectionId);
+    const list = document.getElementById(listId);
+    values = values || [];
+    if(values.length){
+      section.style.display = '';
+      list.innerHTML = values.map(v => `<span class="${pillClass || 'genre-pill'}">${escapeHtml(v)}</span>`).join('');
+    }else{
+      section.style.display = 'none';
+    }
+  }
+
+  function openViewModal(item){
+    viewingItem = item;
+    document.getElementById('viewModalTitle').textContent = item.title;
+    setViewPoster(item.posterPath, item.title);
+
+    const isWishlist = item.status === 'wishlist';
+    const pill = document.getElementById('viewStatusPill');
+    pill.textContent = isWishlist ? '⭐ Wishlist' : '📀 My Shelf';
+    pill.classList.toggle('wishlist', isWishlist);
+
+    const yearEl = document.getElementById('viewYear');
+    yearEl.textContent = item.year || '';
+    yearEl.style.display = item.year ? '' : 'none';
+
+    const formats = item.formats || [];
+    document.getElementById('viewFormats').innerHTML = formats.map(fid => {
+      const f = formatById[fid];
+      return f ? `<div class="badge" style="background:${f.color}">${f.label}</div>` : '';
+    }).join('');
+
+    const metaParts = [];
+    if(item.quality) metaParts.push(escapeHtml(item.quality));
+    if(item.location) metaParts.push(escapeHtml(item.location));
+    const metaEl = document.getElementById('viewMeta');
+    metaEl.innerHTML = metaParts.join(' &middot; ');
+    metaEl.style.display = metaParts.length ? '' : 'none';
+
+    fillViewPillSection('viewGenreSection', 'viewGenres', item.genres, 'genre-pill');
+    fillViewPillSection('viewVibeSection', 'viewVibes', item.vibes, 'vibe-pill');
+
+    const actorsSection = document.getElementById('viewActorsSection');
+    if((item.actors||[]).length){
+      actorsSection.style.display = '';
+      document.getElementById('viewActors').textContent = item.actors.join(', ');
+    }else{
+      actorsSection.style.display = 'none';
+    }
+
+    const trailerSection = document.getElementById('viewTrailerSection');
+    const trailerWrap = document.getElementById('viewTrailerEmbedWrap');
+    const trailerBtn = document.getElementById('viewTrailerToggleBtn');
+    trailerWrap.innerHTML = '';
+    trailerWrap.style.display = 'none';
+    if(item.trailerKey){
+      trailerSection.style.display = '';
+      trailerBtn.style.display = 'inline-flex';
+      trailerBtn.textContent = '▶ Play trailer';
+    }else{
+      trailerSection.style.display = 'none';
+    }
+
+    const notesSection = document.getElementById('viewNotesSection');
+    if(item.notes && item.notes.trim()){
+      notesSection.style.display = '';
+      document.getElementById('viewNotes').textContent = item.notes;
+    }else{
+      notesSection.style.display = 'none';
+    }
+
+    document.getElementById('viewModalOverlay').classList.add('open');
+  }
+
+  function closeViewModal(){
+    document.getElementById('viewModalOverlay').classList.remove('open');
+    document.getElementById('viewTrailerEmbedWrap').innerHTML = '';
+    viewingItem = null;
+  }
+
+  function playViewTrailer(){
+    if(!viewingItem || !viewingItem.trailerKey) return;
+    const wrap = document.getElementById('viewTrailerEmbedWrap');
+    wrap.style.display = 'block';
+    wrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${viewingItem.trailerKey}?autoplay=1&rel=0" title="Trailer" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    document.getElementById('viewTrailerToggleBtn').style.display = 'none';
   }
 
   // ---------- Settings (API keys) ----------
@@ -2080,6 +2271,22 @@
       if(e.target.id === 'modalOverlay') closeModal();
     });
 
+    document.getElementById('viewModalCloseBtn').addEventListener('click', closeViewModal);
+    document.getElementById('viewCloseBtn').addEventListener('click', closeViewModal);
+    document.getElementById('viewModalOverlay').addEventListener('click', e => {
+      if(e.target.id === 'viewModalOverlay') closeViewModal();
+    });
+    document.getElementById('viewTrailerToggleBtn').addEventListener('click', playViewTrailer);
+    document.getElementById('viewEditBtn').addEventListener('click', () => {
+      const item = viewingItem;
+      closeViewModal();
+      if(item) openModal(item);
+    });
+    document.getElementById('viewDeleteBtn').addEventListener('click', async () => {
+      if(!viewingItem) return;
+      if(await deleteItemById(viewingItem.id)) closeViewModal();
+    });
+
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
     document.getElementById('bannerSettingsBtn').addEventListener('click', openSettings);
     document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
@@ -2113,6 +2320,7 @@
     document.addEventListener('keydown', e => {
       if(e.key === 'Escape'){
         if(document.getElementById('modalOverlay').classList.contains('open')) closeModal();
+        if(document.getElementById('viewModalOverlay').classList.contains('open')) closeViewModal();
         if(document.getElementById('settingsOverlay').classList.contains('open')) closeSettings();
         if(document.getElementById('smartAddOverlay').classList.contains('open')) closeSmartAdd();
         if(document.getElementById('recommendOverlay').classList.contains('open')) closeRecommend();
@@ -2143,7 +2351,7 @@
       const card = e.target.closest('.card');
       if(!card) return;
       const item = library.find(m => m.id === card.dataset.id);
-      if(item) openModal(item);
+      if(item) openViewModal(item);
     });
 
     document.getElementById('searchInput').addEventListener('input', e => {
