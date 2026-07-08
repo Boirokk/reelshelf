@@ -873,6 +873,7 @@
   let selectedFormats = new Set();
   let currentPosterPath = null; // TMDB relative path, e.g. /abc.jpg
   let currentTmdbId = null; // TMDB movie id of whatever's currently filled into the modal, if known
+  let pendingTmdbEnrichment = null; // Promise for the in-flight cast/trailer fetch triggered by picking a TMDB result, if any
   let activeView = "shelf"; // "shelf" | "wishlist" — which tab is showing
   let currentStatus = "shelf"; // status selected inside the open modal
   let trailerExpanded = false; // whether the trailer embed is showing in the open modal
@@ -1581,8 +1582,10 @@
     }
     document.getElementById('tmdbResults').style.display = 'none';
     document.getElementById('tmdbStatus').textContent = `Pulled in "${r.title}" from TMDB.`;
-    fetchTmdbCast(r.id);
-    fetchTmdbTrailer(r.id);
+    // Cast/trailer come from separate, slower TMDB requests — keep a handle on them so
+    // saveModal() can wait for both instead of saving before they land (the credits
+    // payload in particular is large and can lose the race if Save is clicked quickly).
+    pendingTmdbEnrichment = Promise.all([fetchTmdbCast(r.id), fetchTmdbTrailer(r.id)]);
   }
 
   async function fetchTmdbCast(movieId){
@@ -1591,6 +1594,8 @@
       const res = await fetch(`/api/tmdb/movie/${encodeURIComponent(movieId)}/credits`);
       if(!res.ok) return;
       const data = await res.json();
+      // The modal may have moved on to a different title by the time this resolves — bail out if so.
+      if(currentTmdbId !== String(movieId)) return;
       const topCast = (data.cast || []).slice(0, 6).map(c => c.name).filter(Boolean);
       if(topCast.length){
         document.getElementById('f_actors').value = topCast.join(', ');
@@ -1606,6 +1611,8 @@
       const res = await fetch(`/api/tmdb/movie/${encodeURIComponent(movieId)}/videos`);
       if(!res.ok) return;
       const data = await res.json();
+      // The modal may have moved on to a different title by the time this resolves — bail out if so.
+      if(currentTmdbId !== String(movieId)) return;
       const vids = (data.results || []).filter(v => v.site === 'YouTube');
       const best = vids.find(v => v.type === 'Trailer' && v.official)
         || vids.find(v => v.type === 'Trailer')
@@ -1623,6 +1630,7 @@
   function openModal(item, presetStatus){
     editingId = item ? item.id : null;
     currentTmdbId = item ? (item.tmdbId || null) : null;
+    pendingTmdbEnrichment = null;
     currentStatus = item ? (item.status === 'wishlist' ? 'wishlist' : 'shelf') : (presetStatus || 'shelf');
     document.getElementById('modalTitle').textContent = item ? 'Edit Title' : 'Add Title';
     document.getElementById('deleteBtn').style.display = item ? 'inline-flex' : 'none';
@@ -1666,6 +1674,7 @@
     document.getElementById('modalOverlay').classList.remove('open');
     editingId = null;
     currentTmdbId = null;
+    pendingTmdbEnrichment = null;
     resetTrailerWrap(document.getElementById('trailerEmbedWrap'));
   }
 
@@ -1680,6 +1689,14 @@
       showToast('Pick at least one format you own it on');
       return;
     }
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    if(pendingTmdbEnrichment){
+      // Cast/trailer fetched from TMDB after picking a search result may still be in
+      // flight — wait for them so Save doesn't beat them to the punch and drop the data.
+      await pendingTmdbEnrichment;
+      pendingTmdbEnrichment = null;
+    }
     const data = {
       title,
       status: currentStatus,
@@ -1689,13 +1706,12 @@
       vibes: Array.from(selectedVibes),
       location: document.getElementById('f_location').value.trim(),
       quality: document.getElementById('f_quality').value,
+      actors: document.getElementById('f_actors').value.split(',').map(s => s.trim()).filter(Boolean),
       trailerKey: extractYoutubeId(document.getElementById('f_trailer_url').value),
       notes: document.getElementById('f_notes').value.trim(),
       posterPath: currentPosterPath,
       tmdbId: currentTmdbId,
     };
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
     try{
       if(editingId){
         const updated = await apiRequest('PUT', `/api/library/${encodeURIComponent(editingId)}`, data);
