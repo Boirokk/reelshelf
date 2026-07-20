@@ -146,6 +146,7 @@
   }
   .key-banner b{ color: var(--ink); }
   .key-banner .header-spacer{ flex:1; }
+  .key-banner-msg{ display:contents; }
 
   .ai-search-banner{
     background: var(--panel); border:1px solid var(--c-moviesanywhere);
@@ -198,6 +199,9 @@
     display:flex; gap:10px; align-items:center; flex-wrap:wrap;
     margin-bottom: 22px;
   }
+  /* On desktop these groups are invisible wrappers — children lay out directly
+     in .filter-bar's flex row, unchanged from before. Mobile restyles them below. */
+  .filter-search-group, .filter-select-group, .format-chip-group{ display:contents; }
   #searchInput{
     flex: 1; min-width: 180px;
     background: var(--panel); border: 1px solid var(--panel-edge);
@@ -465,9 +469,55 @@
 
   footer{ text-align:center; padding: 30px 20px 50px; color: var(--ink-faint); font-size:12.5px; }
 
-  @media (max-width: 560px){
-    .header-inner{ flex-wrap: wrap; }
+  @media (max-width: 640px){
+    /* ----- Header: tighter spacing, icon-only buttons ----- */
+    .header-inner{ flex-wrap: wrap; gap:8px; padding: 12px 16px; }
     .btn span.label{ display:none; }
+    .btn{ padding: 9px 11px; }
+
+    main{ padding: 20px 16px 70px; }
+
+    .stats-row{ gap:8px; margin-bottom: 18px; }
+    .stat-pill{ padding: 8px 12px; font-size: 12px; }
+    .stat-pill b{ font-size: 16px; }
+
+    /* ----- Key banner: stack instead of a wide, tall row ----- */
+    .key-banner{
+      flex-direction: column; align-items: stretch; text-align: left;
+      gap: 10px; padding: 14px 16px; font-size: 13px;
+    }
+    .key-banner-msg{ display:flex; align-items:flex-start; gap:10px; }
+    .key-banner .header-spacer{ display:none; }
+    .key-banner button{ width: 100%; }
+
+    /* ----- Filter bar: stacked groups instead of one wrapping row ----- */
+    .filter-bar{ flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
+    .filter-search-group{ display:flex; gap:8px; }
+    #searchInput{ min-width: 0; }
+    .filter-select-group{ display:flex; gap:8px; }
+    .filter-select-group select{ flex: 1; min-width: 0; }
+    /* Format chips scroll horizontally in one row instead of wrapping into
+       several rows of pills — the biggest single space hog on a phone screen. */
+    .format-chip-group{
+      display:flex; flex-wrap:nowrap; gap:8px; overflow-x:auto;
+      margin: 0 -16px; padding: 2px 16px 6px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .format-chip-group::-webkit-scrollbar{ display:none; }
+    .format-chip-group .chip{ flex-shrink:0; }
+
+    /* ----- Grid: two columns, and card info always visible (there is no
+       hover on touch, so the overlay must not depend on it) ----- */
+    .grid{ grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .card:hover{ transform:none; box-shadow:none; border-color: var(--panel-edge); }
+    .card-overlay{
+      opacity: 1; padding: 20px 8px 8px;
+      background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+    }
+    .card-title{ font-size: 12px; }
+    .card-year{ font-size: 10px; }
+    .card-genres, .card-vibes, .card-actors{ display:none; }
+    .card-formats .badge{ font-size: 8px; padding: 2px 5px; }
   }
 </style>
 </head>
@@ -497,29 +547,37 @@
   <div class="stats-row" id="statsRow"></div>
 
   <div class="key-banner" id="keyBanner" style="display:none;">
-    <span>🔑</span>
-    <span>No TMDB API key set yet — covers and details won't load until you add one. <b>Get a free key at themoviedb.org</b>, then add it via "TMDB Key" above.</span>
+    <div class="key-banner-msg">
+      <span>🔑</span>
+      <span>No TMDB API key set yet — covers and details won't load until you add one. <b>Get a free key at themoviedb.org</b>, then add it via "TMDB Key" above.</span>
+    </div>
     <div class="header-spacer"></div>
     <button class="btn btn-primary" id="bannerSettingsBtn">Add Key</button>
   </div>
 
   <div class="filter-bar">
-    <input id="searchInput" type="text" placeholder="Search by title, genre, actor, location, or description…">
-    <button class="btn btn-ghost" id="aiSearchBtn" type="button" title="Semantic search using AI">✨ Ask AI</button>
-    <select id="genreFilter" class="genre-select">
-      <option value="ALL">All Genres</option>
-    </select>
-    <select id="vibeFilter" class="genre-select">
-      <option value="ALL">All Vibes</option>
-    </select>
-    <div class="chip active" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All</div>
-    <div class="chip" data-format="DVD"><span class="dot" style="background:var(--c-dvd)"></span>DVD</div>
-    <div class="chip" data-format="Blu-ray"><span class="dot" style="background:var(--c-bluray)"></span>Blu-ray</div>
-    <div class="chip" data-format="Blu-ray Ultra 4K"><span class="dot" style="background:var(--c-4k)"></span>Ultra Blu-ray</div>
-    <div class="chip" data-format="Apple TV Digital 4K"><span class="dot" style="background:var(--c-appletv)"></span>Apple TV</div>
-    <div class="chip" data-format="Fandango at Home"><span class="dot" style="background:var(--c-fandango)"></span>Fandango</div>
-    <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
-    <div class="chip" data-format="Movies Anywhere"><span class="dot" style="background:var(--c-moviesanywhere)"></span>Movies Anywhere</div>
+    <div class="filter-search-group">
+      <input id="searchInput" type="text" placeholder="Search by title, genre, actor, location, or description…">
+      <button class="btn btn-ghost" id="aiSearchBtn" type="button" title="Semantic search using AI">✨ Ask AI</button>
+    </div>
+    <div class="filter-select-group">
+      <select id="genreFilter" class="genre-select">
+        <option value="ALL">All Genres</option>
+      </select>
+      <select id="vibeFilter" class="genre-select">
+        <option value="ALL">All Vibes</option>
+      </select>
+    </div>
+    <div class="format-chip-group">
+      <div class="chip active" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All</div>
+      <div class="chip" data-format="DVD"><span class="dot" style="background:var(--c-dvd)"></span>DVD</div>
+      <div class="chip" data-format="Blu-ray"><span class="dot" style="background:var(--c-bluray)"></span>Blu-ray</div>
+      <div class="chip" data-format="Blu-ray Ultra 4K"><span class="dot" style="background:var(--c-4k)"></span>Ultra Blu-ray</div>
+      <div class="chip" data-format="Apple TV Digital 4K"><span class="dot" style="background:var(--c-appletv)"></span>Apple TV</div>
+      <div class="chip" data-format="Fandango at Home"><span class="dot" style="background:var(--c-fandango)"></span>Fandango</div>
+      <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
+      <div class="chip" data-format="Movies Anywhere"><span class="dot" style="background:var(--c-moviesanywhere)"></span>Movies Anywhere</div>
+    </div>
   </div>
   <div class="ai-search-banner" id="aiSearchBanner" style="display:none;"></div>
 
