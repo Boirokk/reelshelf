@@ -249,6 +249,11 @@
   .chip .dot{ width:8px; height:8px; border-radius:50%; }
   .chip.active{ color: var(--ink); border-color: currentColor; background: var(--bg-soft); }
   .chip:hover{ border-color: var(--ink-dim); }
+  .chip-count{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:11px;
+    background: rgba(255,255,255,0.08); border-radius:999px; padding:1px 7px;
+  }
+  .chip.active .chip-count{ background: rgba(255,255,255,0.16); }
 
   /* ---------- Grid ---------- */
   .grid{
@@ -568,16 +573,7 @@
         <option value="ALL">All Vibes</option>
       </select>
     </div>
-    <div class="format-chip-group">
-      <div class="chip active" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All</div>
-      <div class="chip" data-format="DVD"><span class="dot" style="background:var(--c-dvd)"></span>DVD</div>
-      <div class="chip" data-format="Blu-ray"><span class="dot" style="background:var(--c-bluray)"></span>Blu-ray</div>
-      <div class="chip" data-format="Blu-ray Ultra 4K"><span class="dot" style="background:var(--c-4k)"></span>Ultra Blu-ray</div>
-      <div class="chip" data-format="Apple TV Digital 4K"><span class="dot" style="background:var(--c-appletv)"></span>Apple TV</div>
-      <div class="chip" data-format="Fandango at Home"><span class="dot" style="background:var(--c-fandango)"></span>Fandango</div>
-      <div class="chip" data-format="Prime Video"><span class="dot" style="background:var(--c-prime)"></span>Prime</div>
-      <div class="chip" data-format="Movies Anywhere"><span class="dot" style="background:var(--c-moviesanywhere)"></span>Movies Anywhere</div>
-    </div>
+    <div class="format-chip-group" id="formatChipGroup"></div>
   </div>
   <div class="ai-search-banner" id="aiSearchBanner" style="display:none;"></div>
 
@@ -1063,20 +1059,35 @@
     const noun = activeView === 'wishlist'
       ? `wishlist title${total===1?'':'s'}`
       : `title${total===1?'':'s'} owned`;
-    let html = `<div class="stat-pill"><b>${total}</b> ${noun}</div>`;
-    FORMATS.forEach(f => {
-      const count = viewItems.filter(m => (m.formats||[]).includes(f.id)).length;
-      if(count > 0){
-        html += `<div class="stat-pill"><span class="dot" style="background:${f.color}"></span><b>${count}</b> ${f.label}</div>`;
-      }
-    });
-    row.innerHTML = html;
+    row.innerHTML = `<div class="stat-pill"><b>${total}</b> ${noun}</div>`;
 
     document.getElementById('keyBanner').style.display = getApiKey() ? 'none' : 'flex';
     document.getElementById('shelfTabCount').textContent = library.filter(m => !isWishlist(m)).length;
     document.getElementById('wishlistTabCount').textContent = library.filter(isWishlist).length;
     renderGenreFilterOptions();
     renderVibeFilterOptions();
+    renderFormatChipOptions();
+  }
+
+  // Format chips double as both the per-format counts (formerly a separate,
+  // redundant stats row) and the format filter — a format with zero matches
+  // in the current view has nothing useful to filter to, so its chip is
+  // hidden rather than shown disabled.
+  function renderFormatChipOptions(){
+    const wrap = document.getElementById('formatChipGroup');
+    const viewItems = library.filter(m => isWishlist(m) === (activeView === 'wishlist'));
+    const counts = FORMATS.map(f => ({
+      f, count: viewItems.filter(m => (m.formats||[]).includes(f.id)).length
+    }));
+    if(activeFormat !== 'ALL' && !counts.some(c => c.f.id === activeFormat && c.count > 0)){
+      activeFormat = 'ALL';
+    }
+    let html = `<div class="chip${activeFormat === 'ALL' ? ' active' : ''}" data-format="ALL"><span class="dot" style="background:var(--ink-dim)"></span>All <span class="chip-count">${viewItems.length}</span></div>`;
+    counts.forEach(({f, count}) => {
+      if(count === 0) return;
+      html += `<div class="chip${activeFormat === f.id ? ' active' : ''}" data-format="${f.id}"><span class="dot" style="background:${f.color}"></span>${escapeHtml(f.label)} <span class="chip-count">${count}</span></div>`;
+    });
+    wrap.innerHTML = html;
   }
 
   function renderGenreFilterOptions(){
@@ -1199,7 +1210,6 @@
     searchTerm = '';
     document.getElementById('searchInput').value = '';
     document.getElementById('genreFilter').value = 'ALL';
-    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.format === 'ALL'));
     document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === activeView));
     document.querySelector('#addBtn .label').textContent = activeView === 'wishlist' ? 'Add to Wishlist' : 'Add Title';
     renderAll();
@@ -2476,13 +2486,12 @@
       renderGrid();
     });
 
-    document.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        activeFormat = chip.dataset.format;
-        renderGrid();
-      });
+    document.getElementById('formatChipGroup').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      activeFormat = chip.dataset.format;
+      renderFormatChipOptions();
+      renderGrid();
     });
 
     document.getElementById('exportBtn').addEventListener('click', exportLibrary);
